@@ -81,129 +81,129 @@ private:
     double smallDragCalcs();
 };
 
-double Calc_pitch_angle(double z) {
+double Calc_pitch_angle(double z, vector<int> theta_region, vector<double> theta_vector) {
 	
-	// function here:
+	// // function here:
 
-    double theta_0 = 13;      //Theta value, this will be an input into this function from the IMU
+    // double theta_0 = 13;      //Theta value, this will be an input into this function from the IMU
 
-    vector<double> m_theta{ 0.000525089, 0.000690884, 0.001009584, 0.001398228, 0.001801924 };    //Slopes for linear region, determined in excel
+    // vector<double> m_theta{ 0.000525089, 0.000690884, 0.001009584, 0.001398228, 0.001801924 };    //Slopes for linear region, determined in excel
 
-    vector<int> theta_region(8501);     //Size of theta region
+    // vector<int> theta_region(8501);     //Size of theta region
 
-    for (size_t i = 0; i < theta_region.size(); i++)        //Sets theta region from altitude of 2500 ft o 11k feet
-    {
-        theta_region[i] = i + 2500;
-    }
+    // for (size_t i = 0; i < theta_region.size(); i++)        //Sets theta region from altitude of 2500 ft o 11k feet
+    // {
+    //     theta_region[i] = i + 2500;
+    // }
 
-    vector<double> theta_vector(theta_region.size());       //initializes theta vector, same size as theta region
+    // vector<double> theta_vector(theta_region.size());       //initializes theta vector, same size as theta region
 
-    //Linear fit region, 2.5k ft to 7k ft
-    double b;
+    // //Linear fit region, 2.5k ft to 7k ft
+    // double b;
 
-    if (theta_0 <= 7)        //All of the if statements for theta_0
-    {
-        b = theta_0 - m_theta[0] * 2500;
-        for (int i = 0; i < 4501; i++)
-        {
-            theta_vector[i] = m_theta[0] * theta_region[i] + b;
-        }
-    }
-    else if (theta_0 < 7 && theta_0 < 10)
-    {
-        b = theta_0 - m_theta[1] * 2500;
-        for (int i = 0; i < 4501; i++)
-        {
-            theta_vector[i] = m_theta[1] * theta_region[i] + b;
-        }
-    }
-    else if (theta_0 >= 10 && theta_0 < 14)
-    {
-        b = theta_0 - m_theta[2] * 2500;
-        for (int i = 0; i < 4501; i++)
-        {
-            theta_vector[i] = m_theta[2] * theta_region[i] + b;
-        }
-    }
-    else if (theta_0 >= 14 && theta_0 < 19)
-    {
-        b = theta_0 - m_theta[3] * 2500;
-        for (int i = 0; i < 4501; i++)
-        {
-            theta_vector[i] = m_theta[3] * theta_region[i] + b;
-        }
-    }
-    else
-    {
-        b = theta_0 - m_theta[4] * 2500;
-        for (int i = 0; i < 4501; i++)
-        {
-            theta_vector[i] = m_theta[4] * theta_region[i] + b;
-        }
-    }
-    //End of Linear fit region, ends at index 4500 at an altitude of 7k feet
+    // if (theta_0 <= 7)        //All of the if statements for theta_0
+    // {
+    //     b = theta_0 - m_theta[0] * 2500;
+    //     for (int i = 0; i < 4501; i++)
+    //     {
+    //         theta_vector[i] = m_theta[0] * theta_region[i] + b;
+    //     }
+    // }
+    // else if (theta_0 < 7 && theta_0 < 10)
+    // {
+    //     b = theta_0 - m_theta[1] * 2500;
+    //     for (int i = 0; i < 4501; i++)
+    //     {
+    //         theta_vector[i] = m_theta[1] * theta_region[i] + b;
+    //     }
+    // }
+    // else if (theta_0 >= 10 && theta_0 < 14)
+    // {
+    //     b = theta_0 - m_theta[2] * 2500;
+    //     for (int i = 0; i < 4501; i++)
+    //     {
+    //         theta_vector[i] = m_theta[2] * theta_region[i] + b;
+    //     }
+    // }
+    // else if (theta_0 >= 14 && theta_0 < 19)
+    // {
+    //     b = theta_0 - m_theta[3] * 2500;
+    //     for (int i = 0; i < 4501; i++)
+    //     {
+    //         theta_vector[i] = m_theta[3] * theta_region[i] + b;
+    //     }
+    // }
+    // else
+    // {
+    //     b = theta_0 - m_theta[4] * 2500;
+    //     for (int i = 0; i < 4501; i++)
+    //     {
+    //         theta_vector[i] = m_theta[4] * theta_region[i] + b;
+    //     }
+    // }
+    // //End of Linear fit region, ends at index 4500 at an altitude of 7k feet
 
-    //Start of the Quadratic fit region, 7k ft to 10k ft
-    vector<double> a_theta{ 8.26652482191255e-7, 1.03558936423213e-6, 1.53275631191493e-6, 2.17922684530253e-6, 2.92066636707301e-6 };
+    // //Start of the Quadratic fit region, 7k ft to 10k ft
+    // vector<double> a_theta{ 8.26652482191255e-7, 1.03558936423213e-6, 1.53275631191493e-6, 2.17922684530253e-6, 2.92066636707301e-6 };
 
-    int h_theta = 0;        //Parabola parameter for quadratic region
-    double k_theta = theta_vector[4500];        //Initial value of quadratic region
+    // int h_theta = 0;        //Parabola parameter for quadratic region
+    // double k_theta = theta_vector[4500];        //Initial value of quadratic region
 
-    if (theta_0 < 7)     //if statements for the different initial thetas
-    {
-        for (int i = 4501; i < 7501; i++)
-        {
-            theta_vector[i] = a_theta[0] * pow(((theta_region[i] - 7000) - -h_theta), 2) + k_theta;
-        }
-    }
-    else if (theta_0 < 7 && theta_0 < 10)
-    {
-        for (int i = 4501; i < 7501; i++)
-        {
-            theta_vector[i] = a_theta[1] * pow(((theta_region[i] - 7000) - -h_theta), 2) + k_theta;
-        }
-    }
-    else if (theta_0 >= 10 && theta_0 < 14)
-    {
-        for (int i = 4501; i < 7501; i++)
-        {
-            theta_vector[i] = a_theta[2] * pow(((theta_region[i] - 7000) - -h_theta), 2) + k_theta;
-        }
-    }
-    else if (theta_0 >= 14 && theta_0 < 19)
-    {
-        for (int i = 4501; i < 7501; i++)
-        {
-            theta_vector[i] = a_theta[3] * pow(((theta_region[i] - 7000) - -h_theta), 2) + k_theta;
-        }
-    }
-    else
-    {
-        for (int i = 4501; i < 7501; i++)
-        {
-            theta_vector[i] = a_theta[4] * pow(((theta_region[i] - 7000) - -h_theta), 2) + k_theta;
-        }
-    }
-    //End of Quadratic fit region, ends at index 7500 at an altitude of 10k feet
+    // if (theta_0 < 7)     //if statements for the different initial thetas
+    // {
+    //     for (int i = 4501; i < 7501; i++)
+    //     {
+    //         theta_vector[i] = a_theta[0] * pow(((theta_region[i] - 7000) - -h_theta), 2) + k_theta;
+    //     }
+    // }
+    // else if (theta_0 < 7 && theta_0 < 10)
+    // {
+    //     for (int i = 4501; i < 7501; i++)
+    //     {
+    //         theta_vector[i] = a_theta[1] * pow(((theta_region[i] - 7000) - -h_theta), 2) + k_theta;
+    //     }
+    // }
+    // else if (theta_0 >= 10 && theta_0 < 14)
+    // {
+    //     for (int i = 4501; i < 7501; i++)
+    //     {
+    //         theta_vector[i] = a_theta[2] * pow(((theta_region[i] - 7000) - -h_theta), 2) + k_theta;
+    //     }
+    // }
+    // else if (theta_0 >= 14 && theta_0 < 19)
+    // {
+    //     for (int i = 4501; i < 7501; i++)
+    //     {
+    //         theta_vector[i] = a_theta[3] * pow(((theta_region[i] - 7000) - -h_theta), 2) + k_theta;
+    //     }
+    // }
+    // else
+    // {
+    //     for (int i = 4501; i < 7501; i++)
+    //     {
+    //         theta_vector[i] = a_theta[4] * pow(((theta_region[i] - 7000) - -h_theta), 2) + k_theta;
+    //     }
+    // }
+    // //End of Quadratic fit region, ends at index 7500 at an altitude of 10k feet
 
-    //Region after Quadratic region, increase linearly until 90 degrees at a steep slope
-    double inc = 0.1;        //increment for the linear section past the quadratic region
-    vector<double> int_vec(1000);      //interval vector initialization
+    // //Region after Quadratic region, increase linearly until 90 degrees at a steep slope
+    // double inc = 0.1;        //increment for the linear section past the quadratic region
+    // vector<double> int_vec(1000);      //interval vector initialization
 
-    for (size_t i = 0; i < int_vec.size(); i++)     //interval vector definition, 1:1:1000
-    {
-        int_vec[i] = i + 1.0;
-    }
+    // for (size_t i = 0; i < int_vec.size(); i++)     //interval vector definition, 1:1:1000
+    // {
+    //     int_vec[i] = i + 1.0;
+    // }
 
-    for (size_t i = 7501; i < theta_vector.size(); i++)     //adds the last linear section past quadratic region
-    {
-        theta_vector[i] = theta_vector[7500] + inc * int_vec[i - 7501];
-    }
-    //End of last linear increase region
+    // for (size_t i = 7501; i < theta_vector.size(); i++)     //adds the last linear section past quadratic region
+    // {
+    //     theta_vector[i] = theta_vector[7500] + inc * int_vec[i - 7501];
+    // }
+    // //End of last linear increase region
 
-    //Finding the angle theta for a given altitude z
+    // //Finding the angle theta for a given altitude z
 
-    //double z = 9432;    //Altitude in feet, THIS WILL BE AN INPUT FROM THE ALTIMETER
+    // //double z = 9432;    //Altitude in feet, THIS WILL BE AN INPUT FROM THE ALTIMETER
 
     vector<double> altitude_error(theta_region.size());     //Initialization of altitude error, difference between theta_region and altitude
 
@@ -331,13 +331,13 @@ double Calc_z_double_dot(double theta, double drag) {
 	return z_double_dot;
 }
 
-void dynamicsModel(double t, double x, double z, double x_dot, double z_dot, vector<double> &output) {
+void dynamicsModel(double t, double x, double z, double x_dot, double z_dot, vector<double> &output, vector<int> theta_region, vector<double> theta_vector) {
 
 	// x = x
 	// z_dot = z_dot
 	// x_dot = x_dot
 
-	double pitch_angle = Calc_pitch_angle(z * m_to_ft);
+	double pitch_angle = Calc_pitch_angle(z * m_to_ft, theta_region, theta_vector);
 
 	//cout << "Pitch angle (deg): " << pitch_angle*180/pi << endl;
 
@@ -371,14 +371,14 @@ void dynamicsModel(double t, double x, double z, double x_dot, double z_dot, vec
 
 }
 
-void rk4_integrate(double t, double &x, double &z, double &x_dot, double &z_dot, double dt) {
+void rk4_integrate(double t, double &x, double &z, double &x_dot, double &z_dot, double dt, vector<int> theta_region, vector<double> theta_vector) {
 
     vector<double> k1(4), k2(4), k3(4), k4(4);
 
-    dynamicsModel(t, x, z, x_dot, z_dot, k1);
-    dynamicsModel(t+0.5*dt, x + 0.5 * dt * k1[0], z+0.5*dt*k1[1], x_dot+0.5*dt*k1[2], z_dot + 0.5*dt*k1[3], k2);
-    dynamicsModel(t+0.5*dt, x + 0.5 * dt * k2[0], z + 0.5 * dt * k2[1], x_dot + 0.5 * dt * k2[2], z_dot + 0.5 * dt * k2[3], k3);
-    dynamicsModel(t+dt, x + dt * k3[0], z + dt * k3[1], x_dot + dt * k3[2], z_dot + dt * k3[3], k4);
+    dynamicsModel(t, x, z, x_dot, z_dot, k1, theta_region, theta_vector);
+    dynamicsModel(t+0.5*dt, x + 0.5 * dt * k1[0], z+0.5*dt*k1[1], x_dot+0.5*dt*k1[2], z_dot + 0.5*dt*k1[3], k2, theta_region, theta_vector);
+    dynamicsModel(t+0.5*dt, x + 0.5 * dt * k2[0], z + 0.5 * dt * k2[1], x_dot + 0.5 * dt * k2[2], z_dot + 0.5 * dt * k2[3], k3, theta_region, theta_vector);
+    dynamicsModel(t+dt, x + dt * k3[0], z + dt * k3[1], x_dot + dt * k3[2], z_dot + dt * k3[3], k4, theta_region, theta_vector);
 
     x += dt / 6.0 * (k1[0] + 2 * k2[0] + 2 * k3[0] + k4[0]);
     z += dt / 6.0 * (k1[1] + 2 * k2[1] + 2 * k3[1] + k4[1]);
@@ -389,6 +389,128 @@ void rk4_integrate(double t, double &x, double &z, double &x_dot, double &z_dot,
 
 int main() {
 	
+    // function here:
+
+    double theta_0 = 13;      //Theta value, this will be an input into this function from the IMU
+
+    vector<double> m_theta{ 0.000525089, 0.000690884, 0.001009584, 0.001398228, 0.001801924 };    //Slopes for linear region, determined in excel
+
+    vector<int> theta_region(8501);     //Size of theta region
+
+    for (size_t i = 0; i < theta_region.size(); i++)        //Sets theta region from altitude of 2500 ft o 11k feet
+    {
+        theta_region[i] = i + 2500;
+    }
+
+    vector<double> theta_vector(theta_region.size());       //initializes theta vector, same size as theta region
+
+    //Linear fit region, 2.5k ft to 7k ft
+    double b;
+
+    if (theta_0 <= 7)        //All of the if statements for theta_0
+    {
+        b = theta_0 - m_theta[0] * 2500;
+        for (int i = 0; i < 4501; i++)
+        {
+            theta_vector[i] = m_theta[0] * theta_region[i] + b;
+        }
+    }
+    else if (theta_0 < 7 && theta_0 < 10)
+    {
+        b = theta_0 - m_theta[1] * 2500;
+        for (int i = 0; i < 4501; i++)
+        {
+            theta_vector[i] = m_theta[1] * theta_region[i] + b;
+        }
+    }
+    else if (theta_0 >= 10 && theta_0 < 14)
+    {
+        b = theta_0 - m_theta[2] * 2500;
+        for (int i = 0; i < 4501; i++)
+        {
+            theta_vector[i] = m_theta[2] * theta_region[i] + b;
+        }
+    }
+    else if (theta_0 >= 14 && theta_0 < 19)
+    {
+        b = theta_0 - m_theta[3] * 2500;
+        for (int i = 0; i < 4501; i++)
+        {
+            theta_vector[i] = m_theta[3] * theta_region[i] + b;
+        }
+    }
+    else
+    {
+        b = theta_0 - m_theta[4] * 2500;
+        for (int i = 0; i < 4501; i++)
+        {
+            theta_vector[i] = m_theta[4] * theta_region[i] + b;
+        }
+    }
+    //End of Linear fit region, ends at index 4500 at an altitude of 7k feet
+
+    //Start of the Quadratic fit region, 7k ft to 10k ft
+    vector<double> a_theta{ 8.26652482191255e-7, 1.03558936423213e-6, 1.53275631191493e-6, 2.17922684530253e-6, 2.92066636707301e-6 };
+
+    int h_theta = 0;        //Parabola parameter for quadratic region
+    double k_theta = theta_vector[4500];        //Initial value of quadratic region
+
+    if (theta_0 < 7)     //if statements for the different initial thetas
+    {
+        for (int i = 4501; i < 7501; i++)
+        {
+            theta_vector[i] = a_theta[0] * pow(((theta_region[i] - 7000) - -h_theta), 2) + k_theta;
+        }
+    }
+    else if (theta_0 < 7 && theta_0 < 10)
+    {
+        for (int i = 4501; i < 7501; i++)
+        {
+            theta_vector[i] = a_theta[1] * pow(((theta_region[i] - 7000) - -h_theta), 2) + k_theta;
+        }
+    }
+    else if (theta_0 >= 10 && theta_0 < 14)
+    {
+        for (int i = 4501; i < 7501; i++)
+        {
+            theta_vector[i] = a_theta[2] * pow(((theta_region[i] - 7000) - -h_theta), 2) + k_theta;
+        }
+    }
+    else if (theta_0 >= 14 && theta_0 < 19)
+    {
+        for (int i = 4501; i < 7501; i++)
+        {
+            theta_vector[i] = a_theta[3] * pow(((theta_region[i] - 7000) - -h_theta), 2) + k_theta;
+        }
+    }
+    else
+    {
+        for (int i = 4501; i < 7501; i++)
+        {
+            theta_vector[i] = a_theta[4] * pow(((theta_region[i] - 7000) - -h_theta), 2) + k_theta;
+        }
+    }
+    //End of Quadratic fit region, ends at index 7500 at an altitude of 10k feet
+
+    //Region after Quadratic region, increase linearly until 90 degrees at a steep slope
+    double inc = 0.1;        //increment for the linear section past the quadratic region
+    vector<double> int_vec(1000);      //interval vector initialization
+
+    for (size_t i = 0; i < int_vec.size(); i++)     //interval vector definition, 1:1:1000
+    {
+        int_vec[i] = i + 1.0;
+    }
+
+    for (size_t i = 7501; i < theta_vector.size(); i++)     //adds the last linear section past quadratic region
+    {
+        theta_vector[i] = theta_vector[7500] + inc * int_vec[i - 7501];
+    }
+    //End of last linear increase region
+
+    //Finding the angle theta for a given altitude z
+
+    //double z = 9432;    //Altitude in feet, THIS WILL BE AN INPUT FROM THE ALTIMETER
+
 	// Initial Conditions
 	double x = 0.0;
 	double z = 753;
@@ -406,7 +528,7 @@ int main() {
 	while (z_dot > 0) {
     //for (int i = 0; i < 200; i++){
 
-        rk4_integrate(t, x, z, x_dot, z_dot, dt);
+        rk4_integrate(t, x, z, x_dot, z_dot, dt, theta_region, theta_vector);
 
         t += dt;
 
