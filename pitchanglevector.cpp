@@ -127,7 +127,7 @@ double theta_0 = 13;      //Theta value, this will be an input into this functio
 
     for (int i = 0; i < theta_vector.size(); i++)
     {
-        cout << theta_vector[i] << endl;
+        //cout << theta_vector[i] << endl;
     }
 
     return 0;
