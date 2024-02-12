@@ -65,15 +65,15 @@ int main()
         delay(1000);
     }
     
-    pwmWrite(Pwm_pin, b);
-    
+    //pwmWrite(Pwm_pin, b);
+
     //Aibrake flap extension test from 0 degrees to 105 degrees
     //Use m and b to create a mapping from 0 degrees to 105 degrees.
     // int pwm_command;
-    // for(int i = 0; i < 90; i = i + 5)
+    // for(int i = 0; i < 106; i = i + 5)
     // {
     //     pwm_command = round(m*i + b);
-    //     delay(50);
+    //     delay(250);
     //     pwmWrite(Pwm_pin, pwm_command);
     //     cout << pwm_command << endl;        
     // }
