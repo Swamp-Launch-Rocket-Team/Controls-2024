@@ -41,16 +41,16 @@ float controller::controller_loop(double apogee_expected, double Mach, double al
         //Read the altimeter for the altitude: JK this will be done outside of the controller, this is now an input
 
     //Get current gains
-    PI cur_gains(Mach,altitude);
-    cout << "Current Kp Gain:" << "\t" << cur_gains.get_kp() << "\t" << "Current Ki Gain:" << "\t" << cur_gains.get_ki() << endl;
+    PI cur_gains;
+    // cout << "Current Kp Gain:" << "\t" << cur_gains.get_kp() << "\t" << "Current Ki Gain:" << "\t" << cur_gains.get_ki() << endl;
 
     //Calculate current error
     double cur_error = apogee_expected - parameters.setpoint;
-    cout << "Current error:" << "\t" << cur_error << endl;
+    // cout << "Current error:" << "\t" << cur_error << endl;
 
     //Proportional
     double proportional = cur_gains.get_kp()*(cur_error);
-    cout << "Proportional Portion:" << "\t" << proportional << endl;
+    // cout << "Proportional Portion:" << "\t" << proportional << endl;
 
     // if(proportional < 0)     //Idk if we need this?????
     // {
@@ -77,7 +77,7 @@ float controller::controller_loop(double apogee_expected, double Mach, double al
     //Integral
     double T = 0.001;        //Loop time of the controller (this will be found using chrono on the Pi), in seconds
     this->parameters.integral += cur_gains.get_ki()*(T/2)*(cur_error + parameters.prev_error);
-    cout << "Inetgral portion:" << "\t" << parameters.integral << endl;
+    // cout << "Integral portion:" << "\t" << parameters.integral << endl;
 
     //Clamp Integral: This is working.
     if(parameters.integral > parameters.limMax_Integrator)
@@ -90,25 +90,32 @@ float controller::controller_loop(double apogee_expected, double Mach, double al
 
     //Total airbrake output (P + I)
     this->parameters.airbrake_output = proportional + parameters.integral; //This is not the PWM value, should be from 0 - 1 ish
-    cout << "Original airbrake output [0 -> 1] U_airbrake:" << "\t" << parameters.airbrake_output << endl;
+    //cout << "Original airbrake output [0 -> 1] U_airbrake:" << "\t" << parameters.airbrake_output << endl;
 
     //Transform output to PWM signal using the linear mapping
-    this->parameters.airbrake_output = parameters.slope_PWM*parameters.airbrake_output + parameters.b_PWM;  //PWM value
+    // this->parameters.airbrake_output = parameters.slope_PWM*parameters.airbrake_output + parameters.b_PWM;  //PWM value
 
-    cout << "Airbrake output in PWM:" << "\t" << parameters.airbrake_output << endl;
+    //cout << "Airbrake output in PWM:" << "\t" << parameters.airbrake_output << endl;
     
     //Check if the PWM signal is larger than the max and min range, determined by the PAD ARMING state
-    if(parameters.airbrake_output < parameters.limMin)
+    // if(parameters.airbrake_output < parameters.limMin)
+    // {
+    //     this->parameters.airbrake_output = parameters.limMin;
+    // } else if(parameters.airbrake_output > parameters.limMax)
+    // {
+    //     this->parameters.airbrake_output = parameters.limMax;
+    // }
+    if(parameters.airbrake_output < 0)
     {
-        this->parameters.airbrake_output = parameters.limMin;
-    } else if(parameters.airbrake_output > parameters.limMax)
+        this->parameters.airbrake_output = 0;
+    } else if(parameters.airbrake_output > 1)
     {
-        this->parameters.airbrake_output = parameters.limMax;
+        this->parameters.airbrake_output = 1;
     }
 
     //cout << parameters.airbrake_output << endl;
 
-    cout << "Previous error:" << "\t" << parameters.prev_error << endl;
+    // cout << "Previous error:" << "\t" << parameters.prev_error << endl;
 
     //Set the previous error to the current error
     this->parameters.prev_error = cur_error;        //set previous error to the current error
@@ -118,6 +125,14 @@ float controller::controller_loop(double apogee_expected, double Mach, double al
 
 float controller::get_airbrake_output()
 {
+    this->parameters.airbrake_output = parameters.slope_PWM*parameters.airbrake_output + parameters.b_PWM;  //PWM value
+    if(parameters.airbrake_output < parameters.limMin)
+    {
+        this->parameters.airbrake_output = parameters.limMin;
+    } else if(parameters.airbrake_output > parameters.limMax)
+    {
+        this->parameters.airbrake_output = parameters.limMax;
+    }
     return this->parameters.airbrake_output;
 }
 

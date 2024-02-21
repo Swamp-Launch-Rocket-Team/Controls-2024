@@ -54,16 +54,16 @@ int main()
 
     //Aibrake flap extension test from 0 degrees to a specified value in the int ext definition line.
     pwmWrite(Pwm_pin, b);
-    delay(1000);
-    int ext = round(m*90 + b);
+    // delay(1000);
+    // int ext = round(m*90 + b);
 
-    for(int i = 0; i < 5; i++)
-    {
-        pwmWrite(Pwm_pin, b);
-        delay(1000);
-        pwmWrite(Pwm_pin, ext);
-        delay(1000);
-    }
+    // for(int i = 0; i < 5; i++)
+    // {
+    //     pwmWrite(Pwm_pin, b);
+    //     delay(1000);
+    //     pwmWrite(Pwm_pin, ext);
+    //     delay(1000);
+    // }
     
     //pwmWrite(Pwm_pin, b);
 

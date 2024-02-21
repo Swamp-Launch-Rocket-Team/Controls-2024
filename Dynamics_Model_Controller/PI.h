@@ -12,8 +12,8 @@ class PI
     private:
         struct gains_t
         {
-            float kp = 0.1;     //proportional gain
-            float ki = 0.05;    //integral gain
+            float kp = 0.0;     //proportional gain
+            float ki = 0.0;    //integral gain
         } gains;
 
     public:
