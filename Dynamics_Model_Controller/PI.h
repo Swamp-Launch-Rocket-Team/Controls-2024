@@ -13,7 +13,7 @@ class PI
         struct gains_t
         {
             float kp = 0.1;     //proportional gain
-            float ki = 0.05;    //integral gain
+            float ki = 0.005;    //integral gain
         } gains;
 
     public:

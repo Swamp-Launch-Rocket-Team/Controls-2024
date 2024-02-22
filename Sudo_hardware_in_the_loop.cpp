@@ -5,6 +5,7 @@
 #include <math.h>
 #include <algorithm>
 #include <vector>
+#include <wiringPi.h>
 
 using namespace std;
 
@@ -12,8 +13,9 @@ using namespace std;
 #define m 33.94
 #define theta_0 13
 #define m_to_ft 3.28084
-#define U 0
 #define pi 3.14159265
+#define Pwm_pin 23      //GPIO PWM pin
+#define Pwm_init_val 0     //Initial PWM value to start the servo at
 
 class Rocket {
 public:
@@ -226,7 +228,7 @@ float Calc_pitch_angle(float z, vector<int> theta_region, vector<float> theta_ve
     // return 0;
 
     // Calc_x_float_dot uses sin() which takes in radians so this is converted
-	float radian_theta = theta_at_altitude * pi * 0.00556;
+	float radian_theta = theta_at_altitude * pi / 180;
 
 	return radian_theta;
 }
@@ -258,14 +260,14 @@ float Calc_v_rocket(float x_dot, float z_dot) {
 	return sqrt(pow(x_dot, 2) + pow(z_dot,2));
 }
 
-float Calc_U_airbrake(float t) {
+float Calc_U_airbrake(float t, float U_airbrake) {
 
 	// Not sure if U is supposed to change at all but this does the saturation
 	if(t > .1){
 		return 0;
 	}
 	else {
-		return U;
+		return U_airbrake;
 	}
 }
 
@@ -329,7 +331,7 @@ float Calc_z_float_dot(float theta, float drag) {
 	return z_float_dot;
 }
 
-void dynamicsModel(float t, float x, float z, float x_dot, float z_dot, vector<float> &output, vector<int> theta_region, vector<float> theta_vector) {
+void dynamicsModel(float t, float x, float z, float x_dot, float z_dot, vector<float> &output, vector<int> theta_region, vector<float> theta_vector, float &U_airbrake_output, bool first_step) {
 
 	// x = x
 	// z_dot = z_dot
@@ -347,8 +349,14 @@ void dynamicsModel(float t, float x, float z, float x_dot, float z_dot, vector<f
 
 	//cout << "V_rocket: " << v_rocket << endl;
 
-	float U_airbrake = Calc_U_airbrake(t);  // if its not 0 then its just a value
+	// float U_airbrake = Calc_U_airbrake(t, U_airbrake_output);  // if its not 0 then its just a value
+    float U_airbrake = 0;
+    if (first_step)
+    {
+        U_airbrake = U_airbrake_output;
+    }
 	float cd = Calc_cd(z*m_to_ft, v_rocket*m_to_ft, U_airbrake);
+    // cout << "cd:\t" << cd << "U_airbrake:\t" << U_airbrake << endl;
 
 	//cout << "cd: " << cd << endl;
 	//cout << endl;
@@ -369,20 +377,43 @@ void dynamicsModel(float t, float x, float z, float x_dot, float z_dot, vector<f
 
 }
 
-void rk4_integrate(float t, float &x, float &z, float &x_dot, float &z_dot, float dt, vector<int> theta_region, vector<float> theta_vector) {
+void rk4_integrate(float t, float &x, float &z, float &x_dot, float &z_dot, float dt, vector<int> &theta_region, vector<float> &theta_vector, float &U_airbrake, bool first_step) {
 
     vector<float> k1(4), k2(4), k3(4), k4(4);
 
-    dynamicsModel(t, x, z, x_dot, z_dot, k1, theta_region, theta_vector);
-    dynamicsModel(t+0.5*dt, x + 0.5 * dt * k1[0], z+0.5*dt*k1[1], x_dot+0.5*dt*k1[2], z_dot + 0.5*dt*k1[3], k2, theta_region, theta_vector);
-    dynamicsModel(t+0.5*dt, x + 0.5 * dt * k2[0], z + 0.5 * dt * k2[1], x_dot + 0.5 * dt * k2[2], z_dot + 0.5 * dt * k2[3], k3, theta_region, theta_vector);
-    dynamicsModel(t+dt, x + dt * k3[0], z + dt * k3[1], x_dot + dt * k3[2], z_dot + dt * k3[3], k4, theta_region, theta_vector);
+    dynamicsModel(t, x, z, x_dot, z_dot, k1, theta_region, theta_vector, U_airbrake, first_step);
+    dynamicsModel(t+0.5*dt, x + 0.5 * dt * k1[0], z+0.5*dt*k1[1], x_dot+0.5*dt*k1[2], z_dot + 0.5*dt*k1[3], k2, theta_region, theta_vector, U_airbrake, first_step);
+    dynamicsModel(t+0.5*dt, x + 0.5 * dt * k2[0], z + 0.5 * dt * k2[1], x_dot + 0.5 * dt * k2[2], z_dot + 0.5 * dt * k2[3], k3, theta_region, theta_vector, U_airbrake, first_step);
+    dynamicsModel(t+dt, x + dt * k3[0], z + dt * k3[1], x_dot + dt * k3[2], z_dot + dt * k3[3], k4, theta_region, theta_vector, U_airbrake, false);
 
-    x += dt * 0.1666 * (k1[0] + 2 * k2[0] + 2 * k3[0] + k4[0]);
-    z += dt * 0.1666 * (k1[1] + 2 * k2[1] + 2 * k3[1] + k4[1]);
-    x_dot += dt * 0.1666 * (k1[2] + 2 * k2[2] + 2 * k3[2] + k4[2]);
-    z_dot += dt * 0.1666 * (k1[3] + 2 * k2[3] + 2 * k3[3] + k4[3]);
+    x += dt / 6 * (k1[0] + 2 * k2[0] + 2 * k3[0] + k4[0]);
+    z += dt / 6 * (k1[1] + 2 * k2[1] + 2 * k3[1] + k4[1]);
+    x_dot += dt / 6 * (k1[2] + 2 * k2[2] + 2 * k3[2] + k4[2]);
+    z_dot += dt / 6 * (k1[3] + 2 * k2[3] + 2 * k3[3] + k4[3]);
 
+}
+
+void Dynamics_model(float &t, float &x, float &z, float &x_dot, float &z_dot, float dt, vector<int> &theta_region, vector<float> &theta_vector, float &x_init, float &z_init, float &x_dot_init, float &z_dot_init, float &U_airbrake, float &t_init)
+{
+    // until z_dot is negative
+    int num_integrated = 0;
+    rk4_integrate(t, x, z, x_dot, z_dot, dt, theta_region, theta_vector, U_airbrake, true);
+    x_init = x;
+    z_init = z;
+    x_dot_init = x_dot;
+    z_dot_init = z_dot;
+    t += dt;
+    t_init = t;
+	while (z_dot > 0) {
+    //for (int i = 0; i < 200; i++){
+
+        rk4_integrate(t, x, z, x_dot, z_dot, dt, theta_region, theta_vector, U_airbrake, false);
+
+        t += dt;
+
+        num_integrated += 1;
+		// cout << "z_dot:\t" << z_dot << endl;
+	}
 }
 
 int main()
@@ -510,29 +541,70 @@ int main()
     //float z = 9432;    //Altitude in feet, THIS WILL BE AN INPUT FROM THE ALTIMETER
 
 	// Initial Conditions
-	float x = 0.0;
+	float x = 0;
 	float z = 753;
 	float x_dot = 58.38;
-	float z_dot = 285;
+	float z_dot = 296.0;
+    float U_airbrake = 0;
+    float x_init = 0;
+    float z_init = 753;
+    float x_dot_init = 58.38;
+    float z_dot_init = 296.0;
     
     // time step info
     float t = 0;
+    float t_init = t;
     float dt = 0.1;
 
     // tracking how many times its been integrated
     int num_integrated = 1;
 
-    // until z_dot is negative
-	while (z_dot > 0) {
-    //for (int i = 0; i < 200; i++){
+    // // until z_dot is negative
+	// while (z_dot > 0) {
+    // //for (int i = 0; i < 200; i++){
 
-        rk4_integrate(t, x, z, x_dot, z_dot, dt, theta_region, theta_vector);
+    //     rk4_integrate(t, x, z, x_dot, z_dot, dt, theta_region, theta_vector);
 
-        t += dt;
+    //     t += dt;
 
-        num_integrated += 1;
-		// cout << "z_dot:\t" << z_dot << endl;
-	}
+    //     num_integrated += 1;
+	// 	// cout << "z_dot:\t" << z_dot << endl;
+	// }
+    wiringPiSetup();        //Access the wiringPi library
+    pinMode(Pwm_pin, PWM_OUTPUT);       //Set the PWM pin as a PWM OUTPUT
+    pwmSetMode(PWM_MODE_MS);
+
+    int PWM_prescaler = 48;     //Base freq is 19.2 MHz, THIS IS THE VALUE U CHANGE 
+    int pwm_range = 1000 * 48 / PWM_prescaler;
+    int min_Pwm = pwm_range/5;
+    
+    pwmSetClock(PWM_prescaler);
+    pwmSetRange(pwm_range);
+
+    float Pwm_home_value = 345;      //in main.cpp this will be from pad.get_Pwm_home_value() getter
+    float Pwm_max_value = 625;     //in main.cpp this will be from pad.get_Pwm_max_value() getter 
+    pwmWrite(Pwm_pin, Pwm_home_value);
+    float Mach = 0;              //this will be calculated and passed into here
+    float altitude = 0;         //this is from the altimeter
+    controller test;                //creates controller instance, probably don't name this test in main.cpp lol
+    test.init_controller(Pwm_home_value, Pwm_max_value);        //initializes the controller, this should only run once, probably at the end of the Launch Detected status
+    while(z_dot_init > 0)
+    {
+        Dynamics_model(t, x, z, x_dot, z_dot, dt, theta_region, theta_vector, x_init, z_init, x_dot_init, z_dot_init, U_airbrake, t_init);
+
+        U_airbrake = test.controller_loop(z, Mach, z_init);        //method that finds the airbrake output in PWM signal
+        float airoutput = test.get_airbrake_output();
+        //delay(10000);
+        //cout << airoutput << "\t" << U_airbrake << endl;
+        pwmWrite(Pwm_pin, airoutput);
+        //cout << z_init << "\t" << z_dot_init << endl;
+
+        t = t_init;
+        x = x_init;
+        z = z_init;
+        x_dot = x_dot_init;
+        z_dot = z_dot_init;
+    }
 
     cout << "Time: " << t << endl;
 	cout << "Number of times integrated: " << num_integrated << endl;
@@ -542,14 +614,14 @@ int main()
 	cout << "z_dot: " << z_dot << endl;
 
     //Controller Part
-    float Pwm_home_value = 35;      //in main.cpp this will be from pad.get_Pwm_home_value() getter
-    float Pwm_max_value = 1250;     //in main.cpp this will be from pad.get_Pwm_max_value() getter 
-    float Mach = 0.6;              //this will be calculated and passed into here
-    float altitude = 1000;         //this is from the altimeter
-    //controller test;                //creates controller instance, probably don't name this test in main.cpp lol
-    //test.init_controller(Pwm_home_value, Pwm_max_value);        //initializes the controller, this should only run once, probably at the end of the Launch Detected status
-    //test.controller_loop(z, Mach, altitude);        //method that finds the airbrake output in PWM signal
-    //cout << "Final controller output:" << "\t" << test.get_airbrake_output() << endl;       //Prints airbrake controller output
+    // float Pwm_home_value = 35;      //in main.cpp this will be from pad.get_Pwm_home_value() getter
+    // float Pwm_max_value = 1250;     //in main.cpp this will be from pad.get_Pwm_max_value() getter 
+    // float Mach = 0.6;              //this will be calculated and passed into here
+    // float altitude = 1000;         //this is from the altimeter
+    // controller test;                //creates controller instance, probably don't name this test in main.cpp lol
+    // test.init_controller(Pwm_home_value, Pwm_max_value);        //initializes the controller, this should only run once, probably at the end of the Launch Detected status
+    // test.controller_loop(z, Mach, altitude);        //method that finds the airbrake output in PWM signal
+    // cout << "Final controller output:" << "\t" << test.get_airbrake_output() << endl;       //Prints airbrake controller output
 
 
     return 0;

@@ -58,6 +58,10 @@
   "C_Cpp_Runner.msvcSecureNoWarnings": false,
   "files.associations": {
     "iostream": "cpp",
-    "cmath": "cpp"
+    "cmath": "cpp",
+    "random": "cpp",
+    "vector": "cpp",
+    "algorithm": "cpp",
+    "ostream": "cpp"
   }
 }
