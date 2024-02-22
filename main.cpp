@@ -16,19 +16,21 @@
 #include "Dynamics_Model_Controller/controller.h"
 #include "Dynamics_Model_Controller/dynamics_model.h"
 #include "Dynamics_Model_Controller/PI.h"
-#include "Servo/Servo_arming.h"
+//#include "Servo/Servo_arming.h"
 //
 
 //
 //Here list the "prototypes", this is just the initialization of the functions, all state transition functions, write data, launch detect, send servo command, etc..
-void PAD_status(Servo &pad, vector<int> homing_limit_switches, vector<int> max_limit_switches, int Pwm_pin, float Pwm_init_val, state_t &state);
-void ARMED_status(int Pwm_pin, double Pwm_home_value, state_t &state, pair<long, state_t> (&launch_detect_log)[1024], int &index, chrono::_V2::system_clock::time_point &start, chrono::_V2::system_clock::time_point &launch_time);
+void PAD_status(int Pwm_pin, float Pwm_home_value, float Pwm_max_value, state_t &state);
+void ARMED_status(state_t &state, pair<long, state_t> (&launch_detect_log)[1024], int &index, chrono::_V2::system_clock::time_point &start, chrono::_V2::system_clock::time_point &launch_time);
 void LAUNCH_DETECTED_status();
-void ACTUATION_status();
+void ACTUATION_status(int Pwm_pin, float Pwm_home_value, float Pwm_max_value, state_t &state);  //Need to add other stuff
 void APOGEE_DETECTED_status();
 
 
 bool detect_launch(pair<long, state_t> (&launch_detect_log)[1024], int index);
+pair<vector<int>, vector<float>> pitchanglevector(float theta_0);       
+
 //
 
 using namespace std;
@@ -44,27 +46,47 @@ int main()
     //Initialize Altimeter
     //
     
-    //Initialize Limit Switches
-    const vector<int> homing_limit_switches{1,2};           //vector of GPIO pins for the homing limit switches
-    const vector<int> max_limit_switches{3,4,5,6};          //vector of GPIO pins for the max limit switches
+    //Initialize Limit Switches     DON'T NEED ANYMORE
+    // const vector<int> homing_limit_switches{1,2};           //vector of GPIO pins for the homing limit switches
+    // const vector<int> max_limit_switches{3,4,5,6};          //vector of GPIO pins for the max limit switches
 
-    wiringPiSetup();                                        //access the wiringPi library
-    for(int i = 0; i < homing_limit_switches.size(); i++)   //Defining the pins for the home limit switches
-    {
-       pinMode(homing_limit_switches[i], INPUT);            //Set eatch home limit switch as an input
-    }
+    // wiringPiSetup();                                        //access the wiringPi library
+    // for(int i = 0; i < homing_limit_switches.size(); i++)   //Defining the pins for the home limit switches
+    // {
+    //    pinMode(homing_limit_switches[i], INPUT);            //Set eatch home limit switch as an input
+    // }
 
-    for(int i = 0; i < max_limit_switches.size(); i++)      //Defininig the pins for the max limit switches
-    {
-        pinMode(max_limit_switches[i], INPUT);              //Sets each max limit switch as an input
-    }
+    // for(int i = 0; i < max_limit_switches.size(); i++)      //Defininig the pins for the max limit switches
+    // {
+    //     pinMode(max_limit_switches[i], INPUT);              //Sets each max limit switch as an input
+    // }
 
     //Initialize Servo Motor
-    const int Pwm_pin = 1;              //GPIO hardware PWM pin
-    const float Pwm_init_val = 500;     //initial PWM value for the servo, should correspond to around halfway between home and max
-    pinMode(Pwm_pin, PWM_OUTPUT);       //setting the Pwm pin as a PWM output pin
-    pwmWrite(Pwm_pin, Pwm_init_val);    //Set the servo position to the initial PWM value, should be between home and max switches
-    Servo pad;                          //create instance of Servo
+    const int Pwm_pin = 23;              //GPIO hardware PWM pin
+    wiringPiSetup();                     //Access the wiringPi library
+    pinMode(Pwm_pin, PWM_OUTPUT);        //Set the PWM pin as a PWM OUTPUT
+    pwmSetMode(PWM_MODE_MS);
+
+    int PWM_prescaler = 48;     //Base freq is 19.2 MHz, THIS IS THE VALUE U CHANGE 
+    int pwm_range = 1000 * 48 / PWM_prescaler;
+    int min_Pwm = pwm_range/5;
+    
+    pwmSetClock(PWM_prescaler);     //Setting up Pi PWM protocol
+    pwmSetRange(pwm_range);         //Setting up Pi PWM protocol
+
+    const float m = (480.0/180.0);        //THIS IS THE ACTUAL SLOPE WE USE
+    const float b = 345;                  //THIS IS THE B WE USE, THIS IS ALSO THE PWM_HOME VALUE AKA 0 DEGREE EXTENSION
+    const float Pwm_home_value = b;       //Home value, 0 degrees
+    const float Pwm_max_value = m*105 + b;    //Max value, 105 degrees
+
+    pwmWrite(Pwm_pin, Pwm_home_value);           //Commands the servo to the zero deg position, aka "home"
+    delay(1000);
+
+
+    // const float Pwm_init_val = 500;     //initial PWM value for the servo, should correspond to around halfway between home and max
+    // pinMode(Pwm_pin, PWM_OUTPUT);       //setting the Pwm pin as a PWM output pin
+    // pwmWrite(Pwm_pin, Pwm_init_val);    //Set the servo position to the initial PWM value, should be between home and max switches
+    // Servo pad;                          //create instance of Servo
 
     //Store the airbrakes current state
     state_t state; // Stores information of airbrake state
@@ -94,21 +116,22 @@ int main()
         {
             case state_t::PAD:
                 //PAD_status() this function will call the PAD_status void function that will call the Servo_arming file
-                PAD_status(pad, homing_limit_switches, max_limit_switches, Pwm_pin, Pwm_init_val, state);
+                PAD_status(Pwm_pin, Pwm_home_value, Pwm_max_value, state);
                 break;
 
             case state_t::ARMED:
                 //ARMED_status() this function will call the ARMED_status void function that will call the detect_launch function
-                ARMED_status(Pwm_pin, pad.get_Pwm_home_value(), state, launch_detect_log, launch_detect_log_index, start, launch_time);
+                ARMED_status(state, launch_detect_log, launch_detect_log_index, start, launch_time);
                 break;
 
             case state_t::LAUNCH_DETECTED:
                 //LAUNCH_DETECTED_status() this function will call the LAUNCH_DETECTED_status void function that will call the detect_motor_burn_end function or maybe just a timer
-                pwmWrite(Pwm_pin, pad.get_Pwm_home_value());        //Ensures the servo is at the home position
+                pwmWrite(Pwm_pin, Pwm_home_value);        //Ensures the servo is at the home position
                 break;
 
             case state_t::ACTUATION:
                 //ACTUATION_status() this function will call the ACTUATION_status void function that will call the dynamics model and controller from Dynamics_Model_Controller folder, and a detect_apogee function
+                ACTUATION_status(Pwm_pin, Pwm_home_value, Pwm_max_value, state);
                 break;
         }
 
@@ -127,20 +150,37 @@ int main()
 
 //
 //Add all of the void state status functions here
-void PAD_status(Servo &pad, vector<int> homing_limit_switches, vector<int> max_limit_switches, int Pwm_pin, float Pwm_init_val, state_t &state)
+void PAD_status(int Pwm_pin, float Pwm_home_value, float Pwm_max_value, state_t &state)
 {
-    pad.Servo_cal(Pwm_pin, Pwm_init_val, homing_limit_switches, max_limit_switches);
-    delay(1000);        //delay of 1 s
-    if(pad.get_Pwm_home_value() != pad.get_Pwm_init_value() && pad.get_Pwm_max_value() != pad.get_Pwm_init_value() && pad.get_Pwm_home_value() < pad.get_Pwm_init_value() && pad.get_Pwm_max_value() > pad.get_Pwm_init_value())
+    float end_val = 0;
+    for(int i = Pwm_home_value; i < Pwm_max_value; i = i + 10)
     {
-        state.status = state_t::ARMED;
+        pwmWrite(Pwm_pin, i);
+        delay(500);
+        end_val = i;
     }
+    delay(2000);
+    for(int i = end_val; i > Pwm_home_value; i = i - 10)
+    {
+        pwmWrite(Pwm_pin, i);
+        delay(500);
+    }
+    delay(500);
+    pwmWrite(Pwm_pin, Pwm_home_value);
+
+    state.status = state_t::ARMED;
+
+
+    // pad.Servo_cal(Pwm_pin, Pwm_init_val, homing_limit_switches, max_limit_switches);
+    // delay(1000);        //delay of 1 s
+    // if(pad.get_Pwm_home_value() != pad.get_Pwm_init_value() && pad.get_Pwm_max_value() != pad.get_Pwm_init_value() && pad.get_Pwm_home_value() < pad.get_Pwm_init_value() && pad.get_Pwm_max_value() > pad.get_Pwm_init_value())
+    // {
+    //     state.status = state_t::ARMED;
+    // }
 }
 
-void ARMED_status(int Pwm_pin, double pad.get_Pwm_home_value(), state_t &state, pair<long, state_t> (&launch_detect_log)[1024], int &index, chrono::_V2::system_clock::time_point &start, chrono::_V2::system_clock::time_point &launch_time)
-{
-    pwmWrite(Pwm_pin, pad.get_Pwm_home_value());        //Ensures servo is at the home position
-    
+void ARMED_status(state_t &state, pair<long, state_t> (&launch_detect_log)[1024], int &index, chrono::_V2::system_clock::time_point &start, chrono::_V2::system_clock::time_point &launch_time)
+{    
     launch_detect_log[index & 1023] = make_pair(chrono::duration_cast<chrono::microseconds>(chrono::high_resolution_clock::now() - start).count(), state);
 
     if (detect_launch(launch_detect_log, index))
@@ -151,6 +191,21 @@ void ARMED_status(int Pwm_pin, double pad.get_Pwm_home_value(), state_t &state, 
     index++;
 
     return;
+}
+
+void LAUNCH_DETECTED_status()
+{
+
+}
+
+void ACTUATION_status(int Pwm_pin, float Pwm_home_value, float Pwm_max_value, state_t &state)
+{
+
+}
+
+void APOGEE_DETECTED_status()
+{
+
 }
 //
 
@@ -198,5 +253,123 @@ bool detect_launch(pair<long, state_t> (&launch_detect_log)[1024], int index)
     }
 
     return false;
+}
+
+pair<vector<int>, vector<float>> pitchanglevector(float theta_0)
+{
+    const static vector<float> m_theta{ 0.000525089, 0.000690884, 0.001009584, 0.001398228, 0.001801924 };    //Slopes for linear region, determined in excel
+
+    vector<int> theta_region(8501);     //Size of theta region
+
+    for (size_t i = 0; i < theta_region.size(); i++)        //Sets theta region from altitude of 2500 ft o 11k feet
+    {
+        theta_region[i] = i + 2500;
+    }
+
+    vector<float> theta_vector(theta_region.size());       //initializes theta vector, same size as theta region
+
+    //Linear fit region, 2.5k ft to 7k ft
+    float b;
+
+    if (theta_0 <= 7)        //All of the if statements for theta_0
+    {
+        b = theta_0 - m_theta[0] * 2500;
+        for (int i = 0; i < 4501; i++)
+        {
+            theta_vector[i] = m_theta[0] * theta_region[i] + b;
+        }
+    }
+    else if (theta_0 < 7 && theta_0 < 10)
+    {
+        b = theta_0 - m_theta[1] * 2500;
+        for (int i = 0; i < 4501; i++)
+        {
+            theta_vector[i] = m_theta[1] * theta_region[i] + b;
+        }
+    }
+    else if (theta_0 >= 10 && theta_0 < 14)
+    {
+        b = theta_0 - m_theta[2] * 2500;
+        for (int i = 0; i < 4501; i++)
+        {
+            theta_vector[i] = m_theta[2] * theta_region[i] + b;
+        }
+    }
+    else if (theta_0 >= 14 && theta_0 < 19)
+    {
+        b = theta_0 - m_theta[3] * 2500;
+        for (int i = 0; i < 4501; i++)
+        {
+            theta_vector[i] = m_theta[3] * theta_region[i] + b;
+        }
+    }
+    else
+    {
+        b = theta_0 - m_theta[4] * 2500;
+        for (int i = 0; i < 4501; i++)
+        {
+            theta_vector[i] = m_theta[4] * theta_region[i] + b;
+        }
+    }
+    //End of Linear fit region, ends at index 4500 at an altitude of 7k feet
+
+    //Start of the Quadratic fit region, 7k ft to 10k ft
+    vector<float> a_theta{ 8.26652482191255e-7, 1.03558936423213e-6, 1.53275631191493e-6, 2.17922684530253e-6, 2.92066636707301e-6 };
+
+    int h_theta = 0;        //Parabola parameter for quadratic region
+    float k_theta = theta_vector[4500];        //Initial value of quadratic region
+
+    if (theta_0 < 7)     //if statements for the different initial thetas
+    {
+        for (int i = 4501; i < 7501; i++)
+        {
+            theta_vector[i] = a_theta[0] * pow(((theta_region[i] - 7000) - -h_theta), 2) + k_theta;
+        }
+    }
+    else if (theta_0 < 7 && theta_0 < 10)
+    {
+        for (int i = 4501; i < 7501; i++)
+        {
+            theta_vector[i] = a_theta[1] * pow(((theta_region[i] - 7000) - -h_theta), 2) + k_theta;
+        }
+    }
+    else if (theta_0 >= 10 && theta_0 < 14)
+    {
+        for (int i = 4501; i < 7501; i++)
+        {
+            theta_vector[i] = a_theta[2] * pow(((theta_region[i] - 7000) - -h_theta), 2) + k_theta;
+        }
+    }
+    else if (theta_0 >= 14 && theta_0 < 19)
+    {
+        for (int i = 4501; i < 7501; i++)
+        {
+            theta_vector[i] = a_theta[3] * pow(((theta_region[i] - 7000) - -h_theta), 2) + k_theta;
+        }
+    }
+    else
+    {
+        for (int i = 4501; i < 7501; i++)
+        {
+            theta_vector[i] = a_theta[4] * pow(((theta_region[i] - 7000) - -h_theta), 2) + k_theta;
+        }
+    }
+    //End of Quadratic fit region, ends at index 7500 at an altitude of 10k feet
+
+    //Region after Quadratic region, increase linearly until 90 degrees at a steep slope
+    float inc = 0.1;        //increment for the linear section past the quadratic region
+    vector<float> int_vec(1000);      //interval vector initialization
+
+    for (size_t i = 0; i < int_vec.size(); i++)     //interval vector definition, 1:1:1000
+    {
+        int_vec[i] = i + 1.0;
+    }
+
+    for (size_t i = 7501; i < theta_vector.size(); i++)     //adds the last linear section past quadratic region
+    {
+        theta_vector[i] = theta_vector[7500] + inc * int_vec[i - 7501];
+    }
+
+    return {theta_region,theta_vector};
 }
 //

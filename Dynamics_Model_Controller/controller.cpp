@@ -46,11 +46,11 @@ float controller::controller_loop(double apogee_expected, double Mach, double al
 
     //Calculate current error
     double cur_error = apogee_expected - parameters.setpoint;
-    // cout << "Current error:" << "\t" << cur_error << endl;
+    //cout << "Current error:" << "\t" << cur_error << endl;
 
     //Proportional
     double proportional = cur_gains.get_kp()*(cur_error);
-    // cout << "Proportional Portion:" << "\t" << proportional << endl;
+    //cout << "Proportional Portion:" << "\t" << proportional << endl;
 
     // if(proportional < 0)     //Idk if we need this?????
     // {
@@ -77,7 +77,7 @@ float controller::controller_loop(double apogee_expected, double Mach, double al
     //Integral
     double T = 0.001;        //Loop time of the controller (this will be found using chrono on the Pi), in seconds
     this->parameters.integral += cur_gains.get_ki()*(T/2)*(cur_error + parameters.prev_error);
-    // cout << "Integral portion:" << "\t" << parameters.integral << endl;
+    //cout << "Integral portion:" << "\t" << parameters.integral << endl;
 
     //Clamp Integral: This is working.
     if(parameters.integral > parameters.limMax_Integrator)

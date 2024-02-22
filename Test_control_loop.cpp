@@ -546,10 +546,10 @@ int main()
     float Pwm_max_value = 1250;     //in main.cpp this will be from pad.get_Pwm_max_value() getter 
     float Mach = 0.6;              //this will be calculated and passed into here
     float altitude = 1000;         //this is from the altimeter
-    controller test;                //creates controller instance, probably don't name this test in main.cpp lol
-    test.init_controller(Pwm_home_value, Pwm_max_value);        //initializes the controller, this should only run once, probably at the end of the Launch Detected status
-    test.controller_loop(z, Mach, altitude);        //method that finds the airbrake output in PWM signal
-    cout << "Final controller output:" << "\t" << test.get_airbrake_output() << endl;       //Prints airbrake controller output
+    //controller test;                //creates controller instance, probably don't name this test in main.cpp lol
+    //test.init_controller(Pwm_home_value, Pwm_max_value);        //initializes the controller, this should only run once, probably at the end of the Launch Detected status
+    //test.controller_loop(z, Mach, altitude);        //method that finds the airbrake output in PWM signal
+    //cout << "Final controller output:" << "\t" << test.get_airbrake_output() << endl;       //Prints airbrake controller output
 
 
     return 0;
