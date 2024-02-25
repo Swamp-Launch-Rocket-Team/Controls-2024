@@ -23,14 +23,16 @@
 //Here list the "prototypes", this is just the initialization of the functions, all state transition functions, write data, launch detect, send servo command, etc..
 void PAD_status(int Pwm_pin, float Pwm_home_value, float Pwm_max_value, state_t &state);
 void ARMED_status(state_t &state, pair<long, state_t> (&launch_detect_log)[1024], int &index, chrono::_V2::system_clock::time_point &start, chrono::_V2::system_clock::time_point &launch_time);
-void LAUNCH_DETECTED_status();
-void ACTUATION_status(int Pwm_pin, float Pwm_home_value, float Pwm_max_value, state_t &state);  //Need to add other stuff
+void LAUNCH_DETECTED_status(state_t &state, auto motor_burn_time, float &theta_0, vector<int> &theta_region, vector<float> &theta_vector);  //Needs more inputs i think
+void ACTUATION_status(int Pwm_pin, float Pwm_home_value, float Pwm_max_value, state_t &state, float x, float z, float U_airbrake, dynamics_model &dynamics, controller &airbrake, vector<int> theta_region, vector<float> theta_vector);  //Need to add other stuff
 void APOGEE_DETECTED_status();
 
 
 bool detect_launch(pair<long, state_t> (&launch_detect_log)[1024], int index);
-pair<vector<int>, vector<float>> pitchanglevector(float theta_0);       
-
+pair<vector<int>, vector<float>> pitchanglevector(float theta_0); 
+//Idk if I actually need these next 2 functions, can possibly add a method in the state header that calcs these 2 quants and add these to a new struct maybe      
+float xdot_calc(state_t state);
+float zdot_calc(state_t state);     //Also needs altitude for the derivative as input!!!
 //
 
 using namespace std;
@@ -100,9 +102,28 @@ int main()
     auto start = chrono::high_resolution_clock::now();
     auto cur = chrono::high_resolution_clock::now();
     auto launch_time = chrono::high_resolution_clock::now();        //This needs to get reset once launch is detected
+    auto motor_burn_time = chrono::high_resolution_clock::now();    //This gets reset once motor burn is detected
 
     //Set the status to PAD
     state.status = state_t::PAD;
+
+    //Initial conditions for dynamics model and controller
+    vector<int> theta_region[8501];
+    vector<float> theta_vector[8501];
+    float theta_0 = 20.0;
+    float t = 0.0;
+    float dt = 0.1;
+    int num_integrated = 0;
+    float x = 0.0;
+    float U_airbrake = 0.0;
+
+
+    //Initialize the dynamics model object and controller object
+    dynamics_model dynamics;
+    dynamics.init_model();
+    controller airbrake;
+    airbrake.init_controller(Pwm_home_value, Pwm_max_value);
+
 
     //While loop that runs until the APOGEE_DETECTED state is reach, aka this is run from being powered on the pad to apogee
     while (true && state.status != state_t::APOGEE_DETECTED)
@@ -110,12 +131,13 @@ int main()
         cur = chrono::high_resolution_clock::now();
         state.imu_data = imu_read_data();
         //add a read from the altimeter here
+        float z = 0.0;      //Replace this with the altimeter read
 
         //Switch cases that transition between the different states
         switch (state.status)
         {
             case state_t::PAD:
-                //PAD_status() this function will call the PAD_status void function that will call the Servo_arming file
+                //PAD_status() this function will call the PAD_status void function that will do the servo extension test
                 PAD_status(Pwm_pin, Pwm_home_value, Pwm_max_value, state);
                 break;
 
@@ -126,12 +148,13 @@ int main()
 
             case state_t::LAUNCH_DETECTED:
                 //LAUNCH_DETECTED_status() this function will call the LAUNCH_DETECTED_status void function that will call the detect_motor_burn_end function or maybe just a timer
+                LAUNCH_DETECTED_status(state, motor_burn_time, theta_0, theta_region, theta_vector); //Needs more inputs i think
                 pwmWrite(Pwm_pin, Pwm_home_value);        //Ensures the servo is at the home position
                 break;
 
             case state_t::ACTUATION:
                 //ACTUATION_status() this function will call the ACTUATION_status void function that will call the dynamics model and controller from Dynamics_Model_Controller folder, and a detect_apogee function
-                ACTUATION_status(Pwm_pin, Pwm_home_value, Pwm_max_value, state);
+                ACTUATION_status(Pwm_pin, Pwm_home_value, Pwm_max_value, state, x, z, U_airbrake, theta_region, theta_vector);
                 break;
         }
 
@@ -193,13 +216,40 @@ void ARMED_status(state_t &state, pair<long, state_t> (&launch_detect_log)[1024]
     return;
 }
 
-void LAUNCH_DETECTED_status()
+void LAUNCH_DETECTED_status(state_t &state, auto motor_burn_time, float &theta_0, vector<int> &theta_region, vector<float> &theta_vector)
 {
+    //Have motor burn detection function here, or simply a time delay equal to the motor burn + maybe 0.25 seconds?
 
+
+    if (state.status == state_t::ACTUATION)     //This is going to set the initial theta_0 and form theta_region and theta_vector
+    {
+        theta_0 = sqrt(pow(state.imu_data.heading.x, 2) + pow(state.imu_data.heading.z, 2));      //CHECK THIS!!
+        if (theta_0 > 35.0)       //This is just in case the angle reading is not accurate, just approximate it as 20 deg?
+        {
+            theta_0 = 20.0;
+        
+            auto ret = pitchanglevector(theta_0);
+            vector<int> theta_region = ret.first;
+            vector<float> theta_vector = ret.second;
+        }
+    }
 }
 
-void ACTUATION_status(int Pwm_pin, float Pwm_home_value, float Pwm_max_value, state_t &state)
+void ACTUATION_status(int Pwm_pin, float Pwm_home_value, float Pwm_max_value, state_t &state, float x, float z, float U_airbrake, dynamics_model &dynamics, controller &airbrake, vector<int> theta_region, vector<float> theta_vector)
 {
+    float t = 0.0;
+    float dt = 0.1;
+    int num_integrated = 0;
+    float x_dot = state.imu_data.velocity.x;        //Might not be able to call this, might have to have a function that calcs this
+    float z_dot = state.imu_data.velocity.z;        //Might not be able to call this, might have to have a function that calcs this
+
+    dynamics.init_model();
+    dynamics.dynamics(t, x, z, x_dot, z_dot, dt, theta_region, theta_vector, U_airbrake, theta_region, theta_vector);
+    float Mach = 0.6;   //THIS NEEDS TO BE CHANGED, PROLLY MAKE A FUNCTION THAT IS IDENTICAL TO THE ONE IN DRAG.CPP
+    float output = airbrake.controller_loop(test.get_apogee_expected(), Mach, z);        //method that finds the airbrake output in PWM signal
+    pwmWrite(Pwm_pin, output);
+    U_airbrake = airbrake.get_airbrake_output();    //I think, should be the [0->1]
+    //SHOULD BE MORE STUFF I THINK
 
 }
 
@@ -371,5 +421,15 @@ pair<vector<int>, vector<float>> pitchanglevector(float theta_0)
     }
 
     return {theta_region,theta_vector};
+}
+
+float xdot_calc(state_t state)
+{
+
+}
+
+float zdot_calc(state_t state)     //Also needs altitude for the derivative as input!!!
+{
+
 }
 //

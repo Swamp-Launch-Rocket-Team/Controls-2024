@@ -130,6 +130,9 @@ double theta_0 = 13;      //Theta value, this will be an input into this functio
         //cout << theta_vector[i] << endl;
     }
 
+
+    cout << theta_region.size() << endl;
+    cout << theta_vector.size() << endl;
     return 0;
 }
 
