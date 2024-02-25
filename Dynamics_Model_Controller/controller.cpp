@@ -120,7 +120,7 @@ float controller::controller_loop(double apogee_expected, double Mach, double al
     //Set the previous error to the current error
     this->parameters.prev_error = cur_error;        //set previous error to the current error
 
-    return this->parameters.airbrake_output;        //return the airbrake output PWM signal
+    return this->parameters.airbrake_output;        //return the airbrake output [0->1]
 }
 
 float controller::get_airbrake_output()
@@ -133,7 +133,7 @@ float controller::get_airbrake_output()
     {
         this->parameters.airbrake_output = parameters.limMax;
     }
-    return this->parameters.airbrake_output;
+    return this->parameters.airbrake_output;        //Output PWM signal
 }
 
 float controller::get_integral()

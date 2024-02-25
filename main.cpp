@@ -22,9 +22,9 @@
 //
 //Here list the "prototypes", this is just the initialization of the functions, all state transition functions, write data, launch detect, send servo command, etc..
 void PAD_status(int Pwm_pin, float Pwm_home_value, float Pwm_max_value, state_t &state);
-void ARMED_status(state_t &state, pair<long, state_t> (&launch_detect_log)[1024], int &index, chrono::_V2::system_clock::time_point &start, chrono::_V2::system_clock::time_point &launch_time);
-void LAUNCH_DETECTED_status(state_t &state, auto motor_burn_time, float &theta_0, vector<int> &theta_region, vector<float> &theta_vector);  //Needs more inputs i think
-void ACTUATION_status(int Pwm_pin, float Pwm_home_value, float Pwm_max_value, state_t &state, float x, float z, float U_airbrake, dynamics_model &dynamics, controller &airbrake, vector<int> theta_region, vector<float> theta_vector);  //Need to add other stuff
+void ARMED_status(state_t &state, pair<long, state_t> (&launch_detect_log)[1024], int &index, chrono::_V2::system_clock::time_point start, chrono::_V2::system_clock::time_point &launch_time);
+void LAUNCH_DETECTED_status(state_t &state, chrono::_V2::system_clock::time_point &motor_burn_time, float &theta_0, vector<int> &theta_region, vector<float> &theta_vector, chrono::_V2::system_clock::time_point launch_time, chrono::_V2::system_clock::time_point cur);  //Needs more inputs i think
+void ACTUATION_status(int Pwm_pin, float Pwm_home_value, float Pwm_max_value, state_t &state, float x, float z, float &U_airbrake, dynamics_model &dynamics, controller &airbrake, vector<int> theta_region, vector<float> theta_vector, chrono::_V2::system_clock::time_point motor_burn_time, chrono::_V2::system_clock::time_point &apogee_time, chrono::_V2::system_clock::time_point cur);  //Need to add other stuff
 void APOGEE_DETECTED_status();
 
 
@@ -47,21 +47,6 @@ int main()
 
     //Initialize Altimeter
     //
-    
-    //Initialize Limit Switches     DON'T NEED ANYMORE
-    // const vector<int> homing_limit_switches{1,2};           //vector of GPIO pins for the homing limit switches
-    // const vector<int> max_limit_switches{3,4,5,6};          //vector of GPIO pins for the max limit switches
-
-    // wiringPiSetup();                                        //access the wiringPi library
-    // for(int i = 0; i < homing_limit_switches.size(); i++)   //Defining the pins for the home limit switches
-    // {
-    //    pinMode(homing_limit_switches[i], INPUT);            //Set eatch home limit switch as an input
-    // }
-
-    // for(int i = 0; i < max_limit_switches.size(); i++)      //Defininig the pins for the max limit switches
-    // {
-    //     pinMode(max_limit_switches[i], INPUT);              //Sets each max limit switch as an input
-    // }
 
     //Initialize Servo Motor
     const int Pwm_pin = 23;              //GPIO hardware PWM pin
@@ -84,12 +69,6 @@ int main()
     pwmWrite(Pwm_pin, Pwm_home_value);           //Commands the servo to the zero deg position, aka "home"
     delay(1000);
 
-
-    // const float Pwm_init_val = 500;     //initial PWM value for the servo, should correspond to around halfway between home and max
-    // pinMode(Pwm_pin, PWM_OUTPUT);       //setting the Pwm pin as a PWM output pin
-    // pwmWrite(Pwm_pin, Pwm_init_val);    //Set the servo position to the initial PWM value, should be between home and max switches
-    // Servo pad;                          //create instance of Servo
-
     //Store the airbrakes current state
     state_t state; // Stores information of airbrake state
 
@@ -103,6 +82,7 @@ int main()
     auto cur = chrono::high_resolution_clock::now();
     auto launch_time = chrono::high_resolution_clock::now();        //This needs to get reset once launch is detected
     auto motor_burn_time = chrono::high_resolution_clock::now();    //This gets reset once motor burn is detected
+    auto apogee_time = chrono::high_resolution_clock::now();    //This gets reset once apogee has been detected
 
     //Set the status to PAD
     state.status = state_t::PAD;
@@ -111,9 +91,6 @@ int main()
     vector<int> theta_region[8501];
     vector<float> theta_vector[8501];
     float theta_0 = 20.0;
-    float t = 0.0;
-    float dt = 0.1;
-    int num_integrated = 0;
     float x = 0.0;
     float U_airbrake = 0.0;
 
@@ -148,13 +125,13 @@ int main()
 
             case state_t::LAUNCH_DETECTED:
                 //LAUNCH_DETECTED_status() this function will call the LAUNCH_DETECTED_status void function that will call the detect_motor_burn_end function or maybe just a timer
-                LAUNCH_DETECTED_status(state, motor_burn_time, theta_0, theta_region, theta_vector); //Needs more inputs i think
+                LAUNCH_DETECTED_status(state, motor_burn_time, theta_0, theta_region, theta_vector, launch_time, cur); //Needs more inputs i think
                 pwmWrite(Pwm_pin, Pwm_home_value);        //Ensures the servo is at the home position
                 break;
 
             case state_t::ACTUATION:
                 //ACTUATION_status() this function will call the ACTUATION_status void function that will call the dynamics model and controller from Dynamics_Model_Controller folder, and a detect_apogee function
-                ACTUATION_status(Pwm_pin, Pwm_home_value, Pwm_max_value, state, x, z, U_airbrake, theta_region, theta_vector);
+                ACTUATION_status(Pwm_pin, Pwm_home_value, Pwm_max_value, state, x, z, U_airbrake, dynamics, airbrake, theta_region, theta_vector, motor_burn_time, apogee_time, cur);
                 break;
         }
 
@@ -193,22 +170,17 @@ void PAD_status(int Pwm_pin, float Pwm_home_value, float Pwm_max_value, state_t 
 
     state.status = state_t::ARMED;
 
-
-    // pad.Servo_cal(Pwm_pin, Pwm_init_val, homing_limit_switches, max_limit_switches);
-    // delay(1000);        //delay of 1 s
-    // if(pad.get_Pwm_home_value() != pad.get_Pwm_init_value() && pad.get_Pwm_max_value() != pad.get_Pwm_init_value() && pad.get_Pwm_home_value() < pad.get_Pwm_init_value() && pad.get_Pwm_max_value() > pad.get_Pwm_init_value())
-    // {
-    //     state.status = state_t::ARMED;
-    // }
+    return;
 }
 
-void ARMED_status(state_t &state, pair<long, state_t> (&launch_detect_log)[1024], int &index, chrono::_V2::system_clock::time_point &start, chrono::_V2::system_clock::time_point &launch_time)
+void ARMED_status(state_t &state, pair<long, state_t> (&launch_detect_log)[1024], int &index, chrono::_V2::system_clock::time_point start, chrono::_V2::system_clock::time_point &launch_time)
 {    
     launch_detect_log[index & 1023] = make_pair(chrono::duration_cast<chrono::microseconds>(chrono::high_resolution_clock::now() - start).count(), state);
 
     if (detect_launch(launch_detect_log, index))
     {
         state.status = state_t::LAUNCH_DETECTED;
+        launch_time = chrono::high_resolution_clock::now();
     }
 
     index++;
@@ -216,9 +188,17 @@ void ARMED_status(state_t &state, pair<long, state_t> (&launch_detect_log)[1024]
     return;
 }
 
-void LAUNCH_DETECTED_status(state_t &state, auto motor_burn_time, float &theta_0, vector<int> &theta_region, vector<float> &theta_vector)
+void LAUNCH_DETECTED_status(state_t &state, chrono::_V2::system_clock::time_point &motor_burn_time, float &theta_0, vector<int> &theta_region, vector<float> &theta_vector, chrono::_V2::system_clock::time_point launch_time, chrono::_V2::system_clock::time_point cur)
 {
     //Have motor burn detection function here, or simply a time delay equal to the motor burn + maybe 0.25 seconds?
+
+    //Time delay implementation
+    float t_burn_expected = 4.4;    //Reported motor burn time from OpenRocket/Aerotech
+    if (chrono::duration<double>(cur - launch_time) >= t_burn_expected + 0.25)
+    {
+        motor_burn_time = chrono::high_resolution_clock::now();
+        state.status = state_t::ACTUATION;
+    }
 
 
     if (state.status == state_t::ACTUATION)     //This is going to set the initial theta_0 and form theta_region and theta_vector
@@ -227,35 +207,58 @@ void LAUNCH_DETECTED_status(state_t &state, auto motor_burn_time, float &theta_0
         if (theta_0 > 35.0)       //This is just in case the angle reading is not accurate, just approximate it as 20 deg?
         {
             theta_0 = 20.0;
-        
-            auto ret = pitchanglevector(theta_0);
-            vector<int> theta_region = ret.first;
-            vector<float> theta_vector = ret.second;
         }
+        auto ret = pitchanglevector(theta_0);
+        theta_region = ret.first;
+        theta_vector = ret.second;
     }
+
+    return;
 }
 
-void ACTUATION_status(int Pwm_pin, float Pwm_home_value, float Pwm_max_value, state_t &state, float x, float z, float U_airbrake, dynamics_model &dynamics, controller &airbrake, vector<int> theta_region, vector<float> theta_vector)
+void ACTUATION_status(int Pwm_pin, float Pwm_home_value, float Pwm_max_value, state_t &state, float x, float z, float &U_airbrake, dynamics_model &dynamics, controller &airbrake, vector<int> theta_region, vector<float> theta_vector, chrono::_V2::system_clock::time_point motor_burn_time, chrono::_V2::system_clock::time_point &apogee_time, chrono::_V2::system_clock::time_point cur)
 {
+    // auto t_start = chrono::high_resolution_clock::now();
+
+    float t_min = 16.0;     //minimum time expected to apogee from end of motor burn
+    float t_max = 26.0;     //max time expected to apogee from end of motor burn
+
     float t = 0.0;
     float dt = 0.1;
     int num_integrated = 0;
     float x_dot = state.imu_data.velocity.x;        //Might not be able to call this, might have to have a function that calcs this
     float z_dot = state.imu_data.velocity.z;        //Might not be able to call this, might have to have a function that calcs this
 
-    dynamics.init_model();
-    dynamics.dynamics(t, x, z, x_dot, z_dot, dt, theta_region, theta_vector, U_airbrake, theta_region, theta_vector);
-    float Mach = 0.6;   //THIS NEEDS TO BE CHANGED, PROLLY MAKE A FUNCTION THAT IS IDENTICAL TO THE ONE IN DRAG.CPP
-    float output = airbrake.controller_loop(test.get_apogee_expected(), Mach, z);        //method that finds the airbrake output in PWM signal
-    pwmWrite(Pwm_pin, output);
-    U_airbrake = airbrake.get_airbrake_output();    //I think, should be the [0->1]
-    //SHOULD BE MORE STUFF I THINK
+    if (chrono::duration<double>(cur - motor_burn_time).count() >= t_max)      //if the time since motor burn end is greater than 24 seconds, we should have hit apogee
+    {
+        state.status = state_t::APOGEE_DETECTED;
+        apogee_time = chrono::high_resolution_clock::now();
+    }
+    else if (z_dot <= 0 && chrono::duration<double>(cur - motor_burn_time).count() >= t_min)   //if zdot is negative and time since motor burn end is greater than 16 seconds, it is reasonable that we hit apogee
+    {
+        state.status = state_t::APOGEE_DETECTED;
+        apogee_time = chrono::high_resolution_clock::now();
+    }
+    else    //We have not hit apogee, continue with regular actuation algorithm
+    {
+        dynamics.init_model();
+        dynamics.dynamics(t, x, z, x_dot, z_dot, dt, theta_region, theta_vector, U_airbrake);
+        float Mach = 0.6;   //THIS NEEDS TO BE CHANGED, PROLLY MAKE A FUNCTION THAT IS IDENTICAL TO THE ONE IN DRAG.CPP
+        U_airbrake = airbrake.controller_loop(test.get_apogee_expected(), Mach, z);        //method that finds the airbrake output in [0->1]
+        float output = airbrake.get_airbrake_output();    //Output PWM signal
+        pwmWrite(Pwm_pin, output);
+    }
 
+    while (chrono::duration_cast<chrono::milliseconds>(chrono::high_resolution_clock::now() - cur).count() < 100);     //Delay to make sure the total time is no less than 100 ms
+
+    return;
 }
 
 void APOGEE_DETECTED_status()
 {
 
+
+    return;
 }
 //
 

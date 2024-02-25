@@ -3,6 +3,7 @@
 #include "dynamics_model.h"
 #include "controller.h"
 #include "PI.h"
+#include <chrono>
 
 using namespace std;
 
@@ -44,8 +45,14 @@ int main()
     // tracking how many times its been integrated
     int num_integrated = 0;
     int i = 0;
+    float Pwm_home_value = 345;      //in main.cpp this will be from pad.get_Pwm_home_value() getter
+    float Pwm_max_value = 625;     //in main.cpp this will be from pad.get_Pwm_max_value() getter
     dynamics_model test;
     test.init_model();
+    controller airbrake;                //creates controller instance, probably don't name this test in main.cpp lol
+    airbrake.init_controller(Pwm_home_value, Pwm_max_value);        //initializes the controller, this should only run once, probably at the end of the Launch Detected status
+
+    auto t_start = chrono::high_resolution_clock::now();
     while (z_dot > 0)
     {
         // dynamics_model test;
@@ -60,12 +67,12 @@ int main()
 
         float Pwm_home_value = 345;      //in main.cpp this will be from pad.get_Pwm_home_value() getter
         float Pwm_max_value = 625;     //in main.cpp this will be from pad.get_Pwm_max_value() getter 
-        controller airbrake;                //creates controller instance, probably don't name this test in main.cpp lol
+        // controller airbrake;                //creates controller instance, probably don't name this test in main.cpp lol
         float Mach = 0.6;
         float altitude = 1000;
-        airbrake.init_controller(Pwm_home_value, Pwm_max_value);        //initializes the controller, this should only run once, probably at the end of the Launch Detected status
-        float output = airbrake.controller_loop(test.get_apogee_expected(), Mach, altitude);        //method that finds the airbrake output in PWM signal
-        //cout << "Final controller output:" << "\t" << airbrake.get_airbrake_output() << endl;       //Prints airbrake controller output
+        // airbrake.init_controller(Pwm_home_value, Pwm_max_value);        //initializes the controller, this should only run once, probably at the end of the Launch Detected status
+        float output = airbrake.controller_loop(test.get_apogee_expected(), Mach, altitude);        //method that finds the airbrake output in [0->1]
+        cout << "Final controller output:" << "\t" << airbrake.get_airbrake_output() << endl;       //Prints airbrake controller output in PWM
         cout << "U_airbrake:\t" << output << endl;
 
         x = test.get_xinit();
@@ -74,9 +81,11 @@ int main()
         z_dot = test.get_zdotinit();
         U_airbrake = output;
         i++;
-        t = t+dt;
+        // t = t+dt;
         cout << i << endl;
     }
+
+    cout << chrono::duration<double>(chrono::high_resolution_clock::now() - t_start).count() << endl;       //displays total runtime
     return 0;
 }
 
