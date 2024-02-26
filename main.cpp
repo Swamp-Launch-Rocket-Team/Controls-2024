@@ -31,8 +31,8 @@ void APOGEE_DETECTED_status();
 bool detect_launch(pair<long, state_t> (&launch_detect_log)[1024], int index);
 pair<vector<int>, vector<float>> pitchanglevector(float theta_0); 
 //Idk if I actually need these next 2 functions, can possibly add a method in the state header that calcs these 2 quants and add these to a new struct maybe      
-float xdot_calc(state_t state);
-float zdot_calc(state_t state);     //Also needs altitude for the derivative as input!!!
+void xdot_calc(state_t &state);
+void zdot_calc(state_t &state);     //Also needs altitude for the derivative as input!!!
 //
 
 using namespace std;
@@ -108,7 +108,11 @@ int main()
         cur = chrono::high_resolution_clock::now();
         state.imu_data = imu_read_data();
         //add a read from the altimeter here
-        float z = 0.0;      //Replace this with the altimeter read
+        float z = 0.0;      //Replace this with the altimeter read passed into the pressure to altitude function, put this in the state object
+
+        //Find the current xdot and zdot
+        xdot_calc(state);
+        zdot_calc(state);
 
         //Switch cases that transition between the different states
         switch (state.status)
@@ -226,8 +230,8 @@ void ACTUATION_status(int Pwm_pin, float Pwm_home_value, float Pwm_max_value, st
     float t = 0.0;
     float dt = 0.1;
     int num_integrated = 0;
-    float x_dot = state.imu_data.velocity.x;        //Might not be able to call this, might have to have a function that calcs this
-    float z_dot = state.imu_data.velocity.z;        //Might not be able to call this, might have to have a function that calcs this
+    float x_dot = state.velo.xdot;        //Might not be able to call this, might have to have a function that calcs this
+    float z_dot = state.velo.zdot;        //Might not be able to call this, might have to have a function that calcs this
 
     if (chrono::duration<double>(cur - motor_burn_time).count() >= t_max)      //if the time since motor burn end is greater than 24 seconds, we should have hit apogee
     {
@@ -244,7 +248,7 @@ void ACTUATION_status(int Pwm_pin, float Pwm_home_value, float Pwm_max_value, st
         dynamics.init_model();
         dynamics.dynamics(t, x, z, x_dot, z_dot, dt, theta_region, theta_vector, U_airbrake);
         float Mach = 0.6;   //THIS NEEDS TO BE CHANGED, PROLLY MAKE A FUNCTION THAT IS IDENTICAL TO THE ONE IN DRAG.CPP
-        U_airbrake = airbrake.controller_loop(test.get_apogee_expected(), Mach, z);        //method that finds the airbrake output in [0->1]
+        U_airbrake = airbrake.controller_loop(dynamics.get_apogee_expected(), Mach, z);        //method that finds the airbrake output in [0->1]
         float output = airbrake.get_airbrake_output();    //Output PWM signal
         pwmWrite(Pwm_pin, output);
     }
@@ -426,13 +430,47 @@ pair<vector<int>, vector<float>> pitchanglevector(float theta_0)
     return {theta_region,theta_vector};
 }
 
-float xdot_calc(state_t state)
+void xdot_calc(state_t &state)
 {
+
+    //If statement that checks which state we are in
+    //For pad and armed states -> set all xdot 0
+    //For launch detected state -> use the butter filter method
+    //For Actuation state -> use the Kalman method if possible
+
+    if (state.status == state_t::PAD || state.status == state_t::ARMED)
+    {
+        //set all xdot to 0
+    }
+    else if (state.status == state_t::LAUNCH_DETECTED)
+    {
+        //Use the butterworth filter for xdot
+    }
+    else if (state.status == state_t::ACTUATION)
+    {
+        //Use Klaman method for xdot
+    }
 
 }
 
-float zdot_calc(state_t state)     //Also needs altitude for the derivative as input!!!
+void zdot_calc(state_t &state)     //Also needs altitude for the derivative as input!!!
 {
+    //If statement that checks which state we are in
+    //For pad and armed states -> set all zdots to 0
+    //For launch detected state -> use the butter filter method
+    //For Actuation state -> use the Kalman method if possible
 
+    if (state.status == state_t::PAD || state.status == state_t::ARMED)
+    {
+        //set all zdot to 0
+    }
+    else if (state.status == state_t::LAUNCH_DETECTED)
+    {
+        //Use the butterworth filter for zdot
+    }
+    else if (state.status == state_t::ACTUATION)
+    {
+        //Use Klaman method for zdot
+    }
 }
 //
