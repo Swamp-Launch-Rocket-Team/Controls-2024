@@ -24,7 +24,7 @@
 void PAD_status(int Pwm_pin, float Pwm_home_value, float Pwm_max_value, state_t &state);
 void ARMED_status(state_t &state, pair<long, state_t> (&launch_detect_log)[1024], int &index, chrono::_V2::system_clock::time_point start, chrono::_V2::system_clock::time_point &launch_time);
 void LAUNCH_DETECTED_status(state_t &state, chrono::_V2::system_clock::time_point &motor_burn_time, float &theta_0, vector<int> &theta_region, vector<float> &theta_vector, chrono::_V2::system_clock::time_point launch_time, chrono::_V2::system_clock::time_point cur);  //Needs more inputs i think
-void ACTUATION_status(int Pwm_pin, float Pwm_home_value, float Pwm_max_value, state_t &state, float x, float z, float &U_airbrake, dynamics_model &dynamics, controller &airbrake, vector<int> theta_region, vector<float> theta_vector, chrono::_V2::system_clock::time_point motor_burn_time, chrono::_V2::system_clock::time_point &apogee_time, chrono::_V2::system_clock::time_point cur);  //Need to add other stuff
+void ACTUATION_status(int Pwm_pin, float Pwm_home_value, float Pwm_max_value, state_t &state, float x, float z, float &U_airbrake, dynamics_model &dynamics, controller &airbrake, const vector<int> &theta_region, const vector<float> &theta_vector, chrono::_V2::system_clock::time_point motor_burn_time, chrono::_V2::system_clock::time_point &apogee_time, chrono::_V2::system_clock::time_point cur);  //Need to add other stuff
 void APOGEE_DETECTED_status();
 
 
@@ -88,8 +88,8 @@ int main()
     state.status = state_t::PAD;
 
     //Initial conditions for dynamics model and controller
-    vector<int> theta_region[8501];
-    vector<float> theta_vector[8501];
+    vector<int> theta_region = vector<int>(8501);
+    vector<float> theta_vector = vector<float>(8501);
     float theta_0 = 20.0;
     float x = 0.0;
     float U_airbrake = 0.0;
@@ -216,7 +216,7 @@ void LAUNCH_DETECTED_status(state_t &state, chrono::_V2::system_clock::time_poin
     return;
 }
 
-void ACTUATION_status(int Pwm_pin, float Pwm_home_value, float Pwm_max_value, state_t &state, float x, float z, float &U_airbrake, dynamics_model &dynamics, controller &airbrake, vector<int> theta_region, vector<float> theta_vector, chrono::_V2::system_clock::time_point motor_burn_time, chrono::_V2::system_clock::time_point &apogee_time, chrono::_V2::system_clock::time_point cur)
+void ACTUATION_status(int Pwm_pin, float Pwm_home_value, float Pwm_max_value, state_t &state, float x, float z, float &U_airbrake, dynamics_model &dynamics, controller &airbrake, const vector<int> &theta_region, const vector<float> &theta_vector, chrono::_V2::system_clock::time_point motor_burn_time, chrono::_V2::system_clock::time_point &apogee_time, chrono::_V2::system_clock::time_point cur)
 {
     // auto t_start = chrono::high_resolution_clock::now();
 
