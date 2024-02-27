@@ -9,6 +9,11 @@ struct state_t
     // imu_data_t imu_data;
 
     //Altimeter altitude
+    struct altimeter_t
+    {
+        float pressure = 0.0;
+        float z = 0.0;
+    } altimeter;
 
     //Velo struct
     struct velo_t
@@ -24,6 +29,8 @@ struct state_t
         float zdot_2 = 0.0;
         float zdot_1 = 0.0;
         float zdot = 0.0;
+
+        float Mach = 0.0;
     } velo;
 
     enum status_t

@@ -19,13 +19,17 @@
 //#include "Servo/Servo_arming.h"
 //
 
+#define m_to_ft 3.28084
+#define R 287.058
+#define g 9.81
+
 //
 //Here list the "prototypes", this is just the initialization of the functions, all state transition functions, write data, launch detect, send servo command, etc..
 void PAD_status(int Pwm_pin, float Pwm_home_value, float Pwm_max_value, state_t &state);
 void ARMED_status(state_t &state, pair<long, state_t> (&launch_detect_log)[1024], int &index, chrono::_V2::system_clock::time_point start, chrono::_V2::system_clock::time_point &launch_time);
 void LAUNCH_DETECTED_status(state_t &state, chrono::_V2::system_clock::time_point &motor_burn_time, float &theta_0, chrono::_V2::system_clock::time_point launch_time, chrono::_V2::system_clock::time_point cur, unordered_map<int, float> &theta_map, int &ii);  //Needs more inputs i think
-void ACTUATION_status(int Pwm_pin, float Pwm_home_value, float Pwm_max_value, state_t &state, float x, float z, float &U_airbrake, dynamics_model &dynamics, controller &airbrake, chrono::_V2::system_clock::time_point motor_burn_time, chrono::_V2::system_clock::time_point &apogee_time, chrono::_V2::system_clock::time_point cur, int &ii);  //Need to add other stuff
-void APOGEE_DETECTED_status(state_t &state, list<pair<long, state_t>> &data_log);
+void ACTUATION_status(int Pwm_pin, float Pwm_home_value, float Pwm_max_value, state_t &state, float &x, float &U_airbrake, dynamics_model &dynamics, controller &airbrake, chrono::_V2::system_clock::time_point motor_burn_time, chrono::_V2::system_clock::time_point &apogee_time, chrono::_V2::system_clock::time_point cur, int &ii);  //Need to add other stuff
+void APOGEE_DETECTED_status(state_t &state, list<pair<long, state_t>> &data_log, int Pwm_pin, float Pwm_home_value);
 
 
 bool detect_launch(pair<long, state_t> (&launch_detect_log)[1024], int index);
@@ -34,6 +38,8 @@ unordered_map<int, float> pitchanglevector(float theta_0);       //USE THIS IN M
 //Idk if I actually need these next 2 functions, can possibly add a method in the state header that calcs these 2 quants and add these to a new struct maybe      
 void xdot_calc(state_t &state);
 void zdot_calc(state_t &state);     //Also needs altitude for the derivative as input!!!
+void Mach_calc(state_t &state);
+float pressure_to_altitude(state_t &state);
 //
 
 using namespace std;
@@ -112,12 +118,13 @@ int main()
     {
         cur = chrono::high_resolution_clock::now();
         state.imu_data = imu_read_data();
-        //add a read from the altimeter here
-        float z = 0.0;      //Replace this with the altimeter read passed into the pressure to altitude function, put this in the state object
+        //add a read from the altimeter here : state.altimeter.pressure = read from altimeter
+        state.altimeter.z = pressure_to_altitude(state);
 
-        //Find the current xdot and zdot
-        xdot_calc(state);
-        zdot_calc(state);
+        //Find the current xdot, zdot, and Mach number
+        xdot_calc(state);       //in m/s i think
+        zdot_calc(state);       //in m/s i think
+        Mach_calc(state);       //dimensionless
 
         //Initialize the dynamics model object if switched to Actuation state
         if (ii == 1)
@@ -147,7 +154,7 @@ int main()
 
             case state_t::ACTUATION:
                 //ACTUATION_status() this function will call the ACTUATION_status void function that will call the dynamics model and controller from Dynamics_Model_Controller folder, and a detect_apogee function
-                ACTUATION_status(Pwm_pin, Pwm_home_value, Pwm_max_value, state, x, z, U_airbrake, dynamics, airbrake, motor_burn_time, apogee_time, cur, ii);
+                ACTUATION_status(Pwm_pin, Pwm_home_value, Pwm_max_value, state, x, U_airbrake, dynamics, airbrake, motor_burn_time, apogee_time, cur, ii);
                 break;
         }
 
@@ -159,7 +166,7 @@ int main()
     }
 
     //Write the data, command the servo to return to the home position, put the Pi to sleep
-    APOGEE_DETECTED_status(state, data_log);
+    APOGEE_DETECTED_status(state, data_log, Pwm_pin, Pwm_home_value);
 
     return 0;
 }
@@ -235,7 +242,7 @@ void LAUNCH_DETECTED_status(state_t &state, chrono::_V2::system_clock::time_poin
     return;
 }
 
-void ACTUATION_status(int Pwm_pin, float Pwm_home_value, float Pwm_max_value, state_t &state, float x, float z, float &U_airbrake, dynamics_model &dynamics, controller &airbrake, chrono::_V2::system_clock::time_point motor_burn_time, chrono::_V2::system_clock::time_point &apogee_time, chrono::_V2::system_clock::time_point cur, int &ii)
+void ACTUATION_status(int Pwm_pin, float Pwm_home_value, float Pwm_max_value, state_t &state, float &x, float &U_airbrake, dynamics_model &dynamics, controller &airbrake, chrono::_V2::system_clock::time_point motor_burn_time, chrono::_V2::system_clock::time_point &apogee_time, chrono::_V2::system_clock::time_point cur, int &ii)
 {
     // auto t_start = chrono::high_resolution_clock::now();
     ii = 2;
@@ -248,6 +255,7 @@ void ACTUATION_status(int Pwm_pin, float Pwm_home_value, float Pwm_max_value, st
     int num_integrated = 0;
     float x_dot = state.velo.xdot;        //Might not be able to call this, might have to have a function that calcs this
     float z_dot = state.velo.zdot;        //Might not be able to call this, might have to have a function that calcs this
+    float z = state.altimeter.z;
 
     if (chrono::duration<double>(cur - motor_burn_time).count() >= t_max)      //if the time since motor burn end is greater than 24 seconds, we should have hit apogee
     {
@@ -263,7 +271,7 @@ void ACTUATION_status(int Pwm_pin, float Pwm_home_value, float Pwm_max_value, st
     {
         dynamics.init_model();
         dynamics.dynamics(t, x, z, x_dot, z_dot, dt, U_airbrake);
-        float Mach = 0.6;   //THIS NEEDS TO BE CHANGED, PROLLY MAKE A FUNCTION THAT IS IDENTICAL TO THE ONE IN DRAG.CPP
+        float Mach = state.velo.Mach;
         U_airbrake = airbrake.controller_loop(dynamics.get_apogee_expected(), Mach, z);        //method that finds the airbrake output in [0->1]
         float output = airbrake.get_airbrake_output();    //Output PWM signal
         pwmWrite(Pwm_pin, output);
@@ -274,9 +282,12 @@ void ACTUATION_status(int Pwm_pin, float Pwm_home_value, float Pwm_max_value, st
     return;
 }
 
-void APOGEE_DETECTED_status()
+void APOGEE_DETECTED_status(state_t &state, list<pair<long, state_t>> &data_log, int Pwm_pin, float Pwm_home_value)
 {
-
+    pwmWrite(Pwm_pin, Pwm_home_value);
+    delay(500);
+    //Write all data to file
+    //Maybe Pi sleep here? Will that mess up the data log??
 
     return;
 }
@@ -529,6 +540,13 @@ unordered_map<int, float> pitchanglevector(float theta_0)
 //     return {theta_region,theta_vector};
 // }
 
+float pressure_to_altitude(state_t &state)
+{
+    float pressure = state.altimeter.pressure*100.0;
+    float altitude = (288.15/0.0065)*(1-(pow(pressure/101325,0.0065*(R/g))));
+    return altitude;
+}
+
 void xdot_calc(state_t &state)
 {
 
@@ -540,6 +558,11 @@ void xdot_calc(state_t &state)
     if (state.status == state_t::PAD || state.status == state_t::ARMED)
     {
         //set all xdot to 0
+        state.velo.xdot_1 = 0.0;
+        state.velo.xdot_2 = 0.0;
+        state.velo.xdot_3 = 0.0;
+        state.velo.xdot_4 = 0.0;
+        state.velo.xdot = 0.0;
     }
     else if (state.status == state_t::LAUNCH_DETECTED)
     {
@@ -562,6 +585,11 @@ void zdot_calc(state_t &state)     //Also needs altitude for the derivative as i
     if (state.status == state_t::PAD || state.status == state_t::ARMED)
     {
         //set all zdot to 0
+        state.velo.zdot_1 = 0.0;
+        state.velo.zdot_2 = 0.0;
+        state.velo.zdot_3 = 0.0;
+        state.velo.zdot_4 = 0.0;
+        state.velo.zdot = 0.0;
     }
     else if (state.status == state_t::LAUNCH_DETECTED)
     {
@@ -570,6 +598,21 @@ void zdot_calc(state_t &state)     //Also needs altitude for the derivative as i
     else if (state.status == state_t::ACTUATION)
     {
         //Use Klaman method for zdot
+    }
+}
+
+void Mach_calc(state_t &state)
+{
+    if (state.status == state_t::PAD || state.status == state_t::ARMED)
+    {
+        state.velo.Mach = 0.0;
+    }
+    else
+    {
+        float V_rocket = (sqrt(pow(state.velo.xdot, 2) + pow(state.velo.zdot,2)))*m_to_ft;  //in ft/s
+        float h = 4595.0 + state.altimeter.z*m_to_ft;   //in ft
+        float a = -0.004 * h + 1116.45;
+        state.velo.Mach = V_rocket/a;       //Mach number
     }
 }
 //
