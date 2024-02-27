@@ -23,13 +23,14 @@
 //Here list the "prototypes", this is just the initialization of the functions, all state transition functions, write data, launch detect, send servo command, etc..
 void PAD_status(int Pwm_pin, float Pwm_home_value, float Pwm_max_value, state_t &state);
 void ARMED_status(state_t &state, pair<long, state_t> (&launch_detect_log)[1024], int &index, chrono::_V2::system_clock::time_point start, chrono::_V2::system_clock::time_point &launch_time);
-void LAUNCH_DETECTED_status(state_t &state, chrono::_V2::system_clock::time_point &motor_burn_time, float &theta_0, vector<int> &theta_region, vector<float> &theta_vector, chrono::_V2::system_clock::time_point launch_time, chrono::_V2::system_clock::time_point cur);  //Needs more inputs i think
-void ACTUATION_status(int Pwm_pin, float Pwm_home_value, float Pwm_max_value, state_t &state, float x, float z, float &U_airbrake, dynamics_model &dynamics, controller &airbrake, const vector<int> &theta_region, const vector<float> &theta_vector, chrono::_V2::system_clock::time_point motor_burn_time, chrono::_V2::system_clock::time_point &apogee_time, chrono::_V2::system_clock::time_point cur);  //Need to add other stuff
-void APOGEE_DETECTED_status();
+void LAUNCH_DETECTED_status(state_t &state, chrono::_V2::system_clock::time_point &motor_burn_time, float &theta_0, chrono::_V2::system_clock::time_point launch_time, chrono::_V2::system_clock::time_point cur, unordered_map<int, float> &theta_map, int &ii);  //Needs more inputs i think
+void ACTUATION_status(int Pwm_pin, float Pwm_home_value, float Pwm_max_value, state_t &state, float x, float z, float &U_airbrake, dynamics_model &dynamics, controller &airbrake, chrono::_V2::system_clock::time_point motor_burn_time, chrono::_V2::system_clock::time_point &apogee_time, chrono::_V2::system_clock::time_point cur, int &ii);  //Need to add other stuff
+void APOGEE_DETECTED_status(state_t &state, list<pair<long, state_t>> &data_log);
 
 
 bool detect_launch(pair<long, state_t> (&launch_detect_log)[1024], int index);
-pair<vector<int>, vector<float>> pitchanglevector(float theta_0); 
+unordered_map<int, float> pitchanglevector(float theta_0);       //USE THIS IN MAIN
+// pair<vector<int>, vector<float>> pitchanglevector(float theta_0); 
 //Idk if I actually need these next 2 functions, can possibly add a method in the state header that calcs these 2 quants and add these to a new struct maybe      
 void xdot_calc(state_t &state);
 void zdot_calc(state_t &state);     //Also needs altitude for the derivative as input!!!
@@ -88,15 +89,19 @@ int main()
     state.status = state_t::PAD;
 
     //Initial conditions for dynamics model and controller
-    vector<int> theta_region = vector<int>(8501);
-    vector<float> theta_vector = vector<float>(8501);
+    // vector<int> theta_region = vector<int>(8501);
+    // vector<float> theta_vector = vector<float>(8501);
     float theta_0 = 20.0;
     float x = 0.0;
     float U_airbrake = 0.0;
+    int ii = 0;
 
 
     //Initialize the dynamics model object and controller object
-    dynamics_model dynamics;
+    // dynamics_model dynamics;
+    // dynamics.init_model();
+    unordered_map<int, float> theta_map = pitchanglevector(theta_0);
+    dynamics_model dynamics(theta_map);
     dynamics.init_model();
     controller airbrake;
     airbrake.init_controller(Pwm_home_value, Pwm_max_value);
@@ -114,6 +119,13 @@ int main()
         xdot_calc(state);
         zdot_calc(state);
 
+        //Initialize the dynamics model object if switched to Actuation state
+        if (ii == 1)
+        {
+            dynamics_model dynamics(theta_map);
+            dynamics.init_model();
+        }
+
         //Switch cases that transition between the different states
         switch (state.status)
         {
@@ -129,13 +141,13 @@ int main()
 
             case state_t::LAUNCH_DETECTED:
                 //LAUNCH_DETECTED_status() this function will call the LAUNCH_DETECTED_status void function that will call the detect_motor_burn_end function or maybe just a timer
-                LAUNCH_DETECTED_status(state, motor_burn_time, theta_0, theta_region, theta_vector, launch_time, cur); //Needs more inputs i think
+                LAUNCH_DETECTED_status(state, motor_burn_time, theta_0, launch_time, cur, theta_map, ii); //Needs more inputs i think
                 pwmWrite(Pwm_pin, Pwm_home_value);        //Ensures the servo is at the home position
                 break;
 
             case state_t::ACTUATION:
                 //ACTUATION_status() this function will call the ACTUATION_status void function that will call the dynamics model and controller from Dynamics_Model_Controller folder, and a detect_apogee function
-                ACTUATION_status(Pwm_pin, Pwm_home_value, Pwm_max_value, state, x, z, U_airbrake, dynamics, airbrake, theta_region, theta_vector, motor_burn_time, apogee_time, cur);
+                ACTUATION_status(Pwm_pin, Pwm_home_value, Pwm_max_value, state, x, z, U_airbrake, dynamics, airbrake, motor_burn_time, apogee_time, cur, ii);
                 break;
         }
 
@@ -147,7 +159,7 @@ int main()
     }
 
     //Write the data, command the servo to return to the home position, put the Pi to sleep
-    APOGEE_DETECTED_status(state, data_log, cmd_log);
+    APOGEE_DETECTED_status(state, data_log);
 
     return 0;
 }
@@ -192,13 +204,13 @@ void ARMED_status(state_t &state, pair<long, state_t> (&launch_detect_log)[1024]
     return;
 }
 
-void LAUNCH_DETECTED_status(state_t &state, chrono::_V2::system_clock::time_point &motor_burn_time, float &theta_0, vector<int> &theta_region, vector<float> &theta_vector, chrono::_V2::system_clock::time_point launch_time, chrono::_V2::system_clock::time_point cur)
+void LAUNCH_DETECTED_status(state_t &state, chrono::_V2::system_clock::time_point &motor_burn_time, float &theta_0, chrono::_V2::system_clock::time_point launch_time, chrono::_V2::system_clock::time_point cur, unordered_map<int, float> &theta_map, int &ii)
 {
     //Have motor burn detection function here, or simply a time delay equal to the motor burn + maybe 0.25 seconds?
 
     //Time delay implementation
     float t_burn_expected = 4.4;    //Reported motor burn time from OpenRocket/Aerotech
-    if (chrono::duration<double>(cur - launch_time) >= t_burn_expected + 0.25)
+    if (chrono::duration<double>(cur - launch_time).count() >= t_burn_expected + 0.25)
     {
         motor_burn_time = chrono::high_resolution_clock::now();
         state.status = state_t::ACTUATION;
@@ -212,17 +224,21 @@ void LAUNCH_DETECTED_status(state_t &state, chrono::_V2::system_clock::time_poin
         {
             theta_0 = 20.0;
         }
-        auto ret = pitchanglevector(theta_0);
-        theta_region = ret.first;
-        theta_vector = ret.second;
+        ii = 1;
+        theta_map = pitchanglevector(theta_0);
+
+        // auto ret = pitchanglevector(theta_0);
+        // theta_region = ret.first;
+        // theta_vector = ret.second;
     }
 
     return;
 }
 
-void ACTUATION_status(int Pwm_pin, float Pwm_home_value, float Pwm_max_value, state_t &state, float x, float z, float &U_airbrake, dynamics_model &dynamics, controller &airbrake, const vector<int> &theta_region, const vector<float> &theta_vector, chrono::_V2::system_clock::time_point motor_burn_time, chrono::_V2::system_clock::time_point &apogee_time, chrono::_V2::system_clock::time_point cur)
+void ACTUATION_status(int Pwm_pin, float Pwm_home_value, float Pwm_max_value, state_t &state, float x, float z, float &U_airbrake, dynamics_model &dynamics, controller &airbrake, chrono::_V2::system_clock::time_point motor_burn_time, chrono::_V2::system_clock::time_point &apogee_time, chrono::_V2::system_clock::time_point cur, int &ii)
 {
     // auto t_start = chrono::high_resolution_clock::now();
+    ii = 2;
 
     float t_min = 16.0;     //minimum time expected to apogee from end of motor burn
     float t_max = 26.0;     //max time expected to apogee from end of motor burn
@@ -246,7 +262,7 @@ void ACTUATION_status(int Pwm_pin, float Pwm_home_value, float Pwm_max_value, st
     else    //We have not hit apogee, continue with regular actuation algorithm
     {
         dynamics.init_model();
-        dynamics.dynamics(t, x, z, x_dot, z_dot, dt, theta_region, theta_vector, U_airbrake);
+        dynamics.dynamics(t, x, z, x_dot, z_dot, dt, U_airbrake);
         float Mach = 0.6;   //THIS NEEDS TO BE CHANGED, PROLLY MAKE A FUNCTION THAT IS IDENTICAL TO THE ONE IN DRAG.CPP
         U_airbrake = airbrake.controller_loop(dynamics.get_apogee_expected(), Mach, z);        //method that finds the airbrake output in [0->1]
         float output = airbrake.get_airbrake_output();    //Output PWM signal
@@ -312,61 +328,43 @@ bool detect_launch(pair<long, state_t> (&launch_detect_log)[1024], int index)
     return false;
 }
 
-pair<vector<int>, vector<float>> pitchanglevector(float theta_0)
+unordered_map<int, float> pitchanglevector(float theta_0)
 {
     const static vector<float> m_theta{ 0.000525089, 0.000690884, 0.001009584, 0.001398228, 0.001801924 };    //Slopes for linear region, determined in excel
 
-    vector<int> theta_region(8501);     //Size of theta region
 
-    for (size_t i = 0; i < theta_region.size(); i++)        //Sets theta region from altitude of 2500 ft o 11k feet
-    {
-        theta_region[i] = i + 2500;
-    }
+    int min_altitude = 2500;
+    int max_altitude = 11000;
+    int linear_region_end = 7000;
+    int quadratic_region_end = 10000;
 
-    vector<float> theta_vector(theta_region.size());       //initializes theta vector, same size as theta region
+    unordered_map<int, float> theta_map;
 
-    //Linear fit region, 2.5k ft to 7k ft
-    float b;
+    // begin linear fit region 2.5k to 7k feet
+    int slope_index;
+    for (int i =  min_altitude; i <= linear_region_end; i++) {
+        if (theta_0 <= 7)        //All of the if statements for theta_0
+        {
+            slope_index = 0;
+        }
+        else if (theta_0 < 7 && theta_0 < 10)
+        {
+            slope_index = 1;
+        }
+        else if (theta_0 >= 10 && theta_0 < 14)
+        {
+            slope_index = 2;
+        }
+        else if (theta_0 >= 14 && theta_0 < 19)
+        {
+            slope_index = 3;
+        }
+        else {
+            slope_index = 4;
+        }
 
-    if (theta_0 <= 7)        //All of the if statements for theta_0
-    {
-        b = theta_0 - m_theta[0] * 2500;
-        for (int i = 0; i < 4501; i++)
-        {
-            theta_vector[i] = m_theta[0] * theta_region[i] + b;
-        }
-    }
-    else if (theta_0 < 7 && theta_0 < 10)
-    {
-        b = theta_0 - m_theta[1] * 2500;
-        for (int i = 0; i < 4501; i++)
-        {
-            theta_vector[i] = m_theta[1] * theta_region[i] + b;
-        }
-    }
-    else if (theta_0 >= 10 && theta_0 < 14)
-    {
-        b = theta_0 - m_theta[2] * 2500;
-        for (int i = 0; i < 4501; i++)
-        {
-            theta_vector[i] = m_theta[2] * theta_region[i] + b;
-        }
-    }
-    else if (theta_0 >= 14 && theta_0 < 19)
-    {
-        b = theta_0 - m_theta[3] * 2500;
-        for (int i = 0; i < 4501; i++)
-        {
-            theta_vector[i] = m_theta[3] * theta_region[i] + b;
-        }
-    }
-    else
-    {
-        b = theta_0 - m_theta[4] * 2500;
-        for (int i = 0; i < 4501; i++)
-        {
-            theta_vector[i] = m_theta[4] * theta_region[i] + b;
-        }
+        theta_map[i] = m_theta[slope_index] * i + (theta_0 - m_theta[slope_index]*2500);
+
     }
     //End of Linear fit region, ends at index 4500 at an altitude of 7k feet
 
@@ -374,61 +372,162 @@ pair<vector<int>, vector<float>> pitchanglevector(float theta_0)
     vector<float> a_theta{ 8.26652482191255e-7, 1.03558936423213e-6, 1.53275631191493e-6, 2.17922684530253e-6, 2.92066636707301e-6 };
 
     int h_theta = 0;        //Parabola parameter for quadratic region
-    float k_theta = theta_vector[4500];        //Initial value of quadratic region
+    float k_theta = theta_map[linear_region_end];        //Initial value of quadratic region
 
-    if (theta_0 < 7)     //if statements for the different initial thetas
-    {
-        for (int i = 4501; i < 7501; i++)
+    for (int i = linear_region_end + 1; i <= quadratic_region_end; i++) {
+        if (theta_0 <= 7)        //All of the if statements for theta_0
         {
-            theta_vector[i] = a_theta[0] * pow(((theta_region[i] - 7000) - -h_theta), 2) + k_theta;
+            slope_index = 0;
         }
-    }
-    else if (theta_0 < 7 && theta_0 < 10)
-    {
-        for (int i = 4501; i < 7501; i++)
+        else if (theta_0 > 7 && theta_0 < 10)
         {
-            theta_vector[i] = a_theta[1] * pow(((theta_region[i] - 7000) - -h_theta), 2) + k_theta;
+            slope_index = 1;
         }
-    }
-    else if (theta_0 >= 10 && theta_0 < 14)
-    {
-        for (int i = 4501; i < 7501; i++)
+        else if (theta_0 >= 10 && theta_0 < 14)
         {
-            theta_vector[i] = a_theta[2] * pow(((theta_region[i] - 7000) - -h_theta), 2) + k_theta;
+            slope_index = 2;
         }
-    }
-    else if (theta_0 >= 14 && theta_0 < 19)
-    {
-        for (int i = 4501; i < 7501; i++)
+        else if (theta_0 >= 14 && theta_0 < 19)
         {
-            theta_vector[i] = a_theta[3] * pow(((theta_region[i] - 7000) - -h_theta), 2) + k_theta;
+            slope_index = 3;
         }
-    }
-    else
-    {
-        for (int i = 4501; i < 7501; i++)
-        {
-            theta_vector[i] = a_theta[4] * pow(((theta_region[i] - 7000) - -h_theta), 2) + k_theta;
+        else {
+            slope_index = 4;
         }
+
+        // it was - -h_theta
+        theta_map[i] = a_theta[slope_index] * pow((i - 7000 + h_theta), 2) + k_theta;
+
     }
     //End of Quadratic fit region, ends at index 7500 at an altitude of 10k feet
 
     //Region after Quadratic region, increase linearly until 90 degrees at a steep slope
-    float inc = 0.1;        //increment for the linear section past the quadratic region
-    vector<float> int_vec(1000);      //interval vector initialization
 
-    for (size_t i = 0; i < int_vec.size(); i++)     //interval vector definition, 1:1:1000
-    {
-        int_vec[i] = i + 1.0;
+    float inc = 0.1; // increment for linear section past quadratic region
+    for (int i = quadratic_region_end + 1; i <= max_altitude; i++) { //adds the last linear section past quadratic region
+        theta_map[i] = theta_map[quadratic_region_end] + inc * (i - quadratic_region_end);
     }
 
-    for (size_t i = 7501; i < theta_vector.size(); i++)     //adds the last linear section past quadratic region
-    {
-        theta_vector[i] = theta_vector[7500] + inc * int_vec[i - 7501];
-    }
-
-    return {theta_region,theta_vector};
+    return theta_map;
 }
+
+// pair<vector<int>, vector<float>> pitchanglevector(float theta_0)
+// {
+//     const static vector<float> m_theta{ 0.000525089, 0.000690884, 0.001009584, 0.001398228, 0.001801924 };    //Slopes for linear region, determined in excel
+
+//     vector<int> theta_region(8501);     //Size of theta region
+
+//     for (size_t i = 0; i < theta_region.size(); i++)        //Sets theta region from altitude of 2500 ft o 11k feet
+//     {
+//         theta_region[i] = i + 2500;
+//     }
+
+//     vector<float> theta_vector(theta_region.size());       //initializes theta vector, same size as theta region
+
+//     //Linear fit region, 2.5k ft to 7k ft
+//     float b;
+
+//     if (theta_0 <= 7)        //All of the if statements for theta_0
+//     {
+//         b = theta_0 - m_theta[0] * 2500;
+//         for (int i = 0; i < 4501; i++)
+//         {
+//             theta_vector[i] = m_theta[0] * theta_region[i] + b;
+//         }
+//     }
+//     else if (theta_0 < 7 && theta_0 < 10)
+//     {
+//         b = theta_0 - m_theta[1] * 2500;
+//         for (int i = 0; i < 4501; i++)
+//         {
+//             theta_vector[i] = m_theta[1] * theta_region[i] + b;
+//         }
+//     }
+//     else if (theta_0 >= 10 && theta_0 < 14)
+//     {
+//         b = theta_0 - m_theta[2] * 2500;
+//         for (int i = 0; i < 4501; i++)
+//         {
+//             theta_vector[i] = m_theta[2] * theta_region[i] + b;
+//         }
+//     }
+//     else if (theta_0 >= 14 && theta_0 < 19)
+//     {
+//         b = theta_0 - m_theta[3] * 2500;
+//         for (int i = 0; i < 4501; i++)
+//         {
+//             theta_vector[i] = m_theta[3] * theta_region[i] + b;
+//         }
+//     }
+//     else
+//     {
+//         b = theta_0 - m_theta[4] * 2500;
+//         for (int i = 0; i < 4501; i++)
+//         {
+//             theta_vector[i] = m_theta[4] * theta_region[i] + b;
+//         }
+//     }
+//     //End of Linear fit region, ends at index 4500 at an altitude of 7k feet
+
+//     //Start of the Quadratic fit region, 7k ft to 10k ft
+//     vector<float> a_theta{ 8.26652482191255e-7, 1.03558936423213e-6, 1.53275631191493e-6, 2.17922684530253e-6, 2.92066636707301e-6 };
+
+//     int h_theta = 0;        //Parabola parameter for quadratic region
+//     float k_theta = theta_vector[4500];        //Initial value of quadratic region
+
+//     if (theta_0 < 7)     //if statements for the different initial thetas
+//     {
+//         for (int i = 4501; i < 7501; i++)
+//         {
+//             theta_vector[i] = a_theta[0] * pow(((theta_region[i] - 7000) - -h_theta), 2) + k_theta;
+//         }
+//     }
+//     else if (theta_0 < 7 && theta_0 < 10)
+//     {
+//         for (int i = 4501; i < 7501; i++)
+//         {
+//             theta_vector[i] = a_theta[1] * pow(((theta_region[i] - 7000) - -h_theta), 2) + k_theta;
+//         }
+//     }
+//     else if (theta_0 >= 10 && theta_0 < 14)
+//     {
+//         for (int i = 4501; i < 7501; i++)
+//         {
+//             theta_vector[i] = a_theta[2] * pow(((theta_region[i] - 7000) - -h_theta), 2) + k_theta;
+//         }
+//     }
+//     else if (theta_0 >= 14 && theta_0 < 19)
+//     {
+//         for (int i = 4501; i < 7501; i++)
+//         {
+//             theta_vector[i] = a_theta[3] * pow(((theta_region[i] - 7000) - -h_theta), 2) + k_theta;
+//         }
+//     }
+//     else
+//     {
+//         for (int i = 4501; i < 7501; i++)
+//         {
+//             theta_vector[i] = a_theta[4] * pow(((theta_region[i] - 7000) - -h_theta), 2) + k_theta;
+//         }
+//     }
+//     //End of Quadratic fit region, ends at index 7500 at an altitude of 10k feet
+
+//     //Region after Quadratic region, increase linearly until 90 degrees at a steep slope
+//     float inc = 0.1;        //increment for the linear section past the quadratic region
+//     vector<float> int_vec(1000);      //interval vector initialization
+
+//     for (size_t i = 0; i < int_vec.size(); i++)     //interval vector definition, 1:1:1000
+//     {
+//         int_vec[i] = i + 1.0;
+//     }
+
+//     for (size_t i = 7501; i < theta_vector.size(); i++)     //adds the last linear section past quadratic region
+//     {
+//         theta_vector[i] = theta_vector[7500] + inc * int_vec[i - 7501];
+//     }
+
+//     return {theta_region,theta_vector};
+// }
 
 void xdot_calc(state_t &state)
 {
