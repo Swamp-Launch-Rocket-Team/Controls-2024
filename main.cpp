@@ -55,6 +55,8 @@ int main()
     //Initialize Altimeter
     //
 
+
+
     //Initialize Servo Motor
     const int Pwm_pin = 23;              //GPIO hardware PWM pin
     wiringPiSetup();                     //Access the wiringPi library
@@ -76,13 +78,17 @@ int main()
     pwmWrite(Pwm_pin, Pwm_home_value);           //Commands the servo to the zero deg position, aka "home"
     delay(1000);
 
+
+
     //Store the airbrakes current state
     state_t state; // Stores information of airbrake state
+
 
     //Idk what exactly this does but Jason has it, the detect launch index is used in the launch detect algorithm
     list<pair<long, state_t>> data_log;
     pair<long, state_t> launch_detect_log[1024];
     int launch_detect_log_index = 0;
+
 
     //Initialize and define variables for starting time and current time
     auto start = chrono::high_resolution_clock::now();
@@ -91,8 +97,10 @@ int main()
     auto motor_burn_time = chrono::high_resolution_clock::now();    //This gets reset once motor burn is detected
     auto apogee_time = chrono::high_resolution_clock::now();    //This gets reset once apogee has been detected
 
+
     //Set the status to PAD
     state.status = state_t::PAD;
+
 
     //Initial conditions for dynamics model and controller
     // vector<int> theta_region = vector<int>(8501);
