@@ -3,7 +3,7 @@
 
 #include <iostream>
 #include <cmath>
-#include "PI.h"
+#include "pi.h"
 
 using namespace std;
 

@@ -1,13 +1,10 @@
-#include "PI.h"
+#include "pi.h"
 #include <iostream>
 
 using namespace std;
 
 //Defualt constructor
-PI::PI()
-{
-
-}
+PI::PI() {};
 
 //Gain-scheduled constructor
 PI::PI(double Mach, double altitude)

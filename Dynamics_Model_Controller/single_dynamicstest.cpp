@@ -1,8 +1,8 @@
 #include <iostream>
-#include "Drag.h"
+#include "drag.h"
 #include "dynamics_model.h"
 #include "controller.h"
-#include "PI.h"
+#include "pi.h"
 #include <unordered_map>
 
 using namespace std;

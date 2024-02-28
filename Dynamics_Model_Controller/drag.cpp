@@ -1,6 +1,6 @@
 #include <iostream>
 #include <cmath>
-#include "Drag.h"
+#include "drag.h"
 
 using namespace std;
 

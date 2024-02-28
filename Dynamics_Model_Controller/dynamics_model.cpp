@@ -3,7 +3,7 @@
 #include <algorithm>
 #include <vector>
 #include "dynamics_model.h"
-#include "Drag.h"
+#include "drag.h"
 #include <iostream>
 
 using namespace std;

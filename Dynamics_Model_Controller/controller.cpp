@@ -1,7 +1,7 @@
 #include <iostream>
 #include <cmath>
 #include "controller.h"
-#include "PI.h"
+#include "pi.h"
 
 using namespace std;
 
