@@ -33,6 +33,7 @@ void APOGEE_DETECTED_status(state_t &state, list<pair<long, state_t>> &data_log,
 
 
 bool detect_launch(pair<long, state_t> (&launch_detect_log)[1024], int index);
+float axes_mag(axes_t &axes);
 unordered_map<int, float> pitchanglevector(float theta_0);       //USE THIS IN MAIN
 // pair<vector<int>, vector<float>> pitchanglevector(float theta_0); 
 //Idk if I actually need these next 2 functions, can possibly add a method in the state header that calcs these 2 quants and add these to a new struct maybe      
@@ -622,5 +623,10 @@ void Mach_calc(state_t &state)
         float a = -0.004 * h + 1116.45;
         state.velo.Mach = V_rocket/a;       //Mach number
     }
+}
+
+float axes_mag(axes_t &axes)
+{
+    return sqrt(axes.x * axes.x + axes.y * axes.y + axes.z * axes.z);
 }
 //

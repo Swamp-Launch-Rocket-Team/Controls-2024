@@ -2,8 +2,8 @@
 
 #include <fcntl.h>
 #include <unistd.h>
-#include <sys/ioctl.h>
-#include <linux/i2c-dev.h>
+//#include <sys/ioctl.h>        //NEED TO UNCOMMENT THIS TO RUN
+//#include <linux/i2c-dev.h>    //NEED TO UNCOMMENT TO RUN
 #include <iostream>
 #include <vector>
 // #include <chrono>
