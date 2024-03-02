@@ -8,13 +8,14 @@
 #include <sys/ioctl.h>
 #include <linux/spi/spidev.h>
 #include <cerrno>
+#include <wiringPi.h>
 
 // #define SL_SPI_DEVICE "/dev/spidev0.1"
-#define SL_SPI_MODE 0
+// #define SL_SPI_MODE 0
 #define SL_SPI_BITS_PER_WORD 8
-#define SL_SPI_SPEED_HZ 10000000 // 10 MHz
+#define SL_SPI_SPEED_HZ 1000000 // 10 MHz
 
-int spi_open(std::string device)
+int spi_open(std::string device, char mode)
 {
     int spiFile;
 
@@ -25,8 +26,7 @@ int spi_open(std::string device)
     }
 
     // Configure SPI mode
-    char spiMode = SL_SPI_MODE;
-    if (ioctl(spiFile, SPI_IOC_WR_MODE, &spiMode) < 0)
+    if (ioctl(spiFile, SPI_IOC_WR_MODE, &mode) < 0)
     {
         close(spiFile);
         return -2;
@@ -87,6 +87,9 @@ int spi_write(int fd, char *buf, unsigned count)
         printf("Error: %s\n", strerror(errno));
     }
 
+    // digitalWrite(14, HIGH);
+    // digitalWrite(11, HIGH);
+
     return err;
 }
 
@@ -112,6 +115,9 @@ int spi_transact(int fd, char *tx, char *rx, unsigned count)
         perror("SPI_IOC_MESSAGE failed");
         printf("Error: %s\n", strerror(errno));
     }
+
+    // digitalWrite(14, HIGH);
+    // digitalWrite(11, HIGH);
 
     return err;
 }

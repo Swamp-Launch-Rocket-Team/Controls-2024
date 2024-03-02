@@ -2,8 +2,8 @@
 
 #include <fcntl.h>
 #include <unistd.h>
-//#include <sys/ioctl.h>        //NEED TO UNCOMMENT THIS TO RUN
-//#include <linux/i2c-dev.h>    //NEED TO UNCOMMENT TO RUN
+#include <sys/ioctl.h>        //NEED TO UNCOMMENT THIS TO RUN
+#include <linux/i2c-dev.h>    //NEED TO UNCOMMENT TO RUN
 #include <iostream>
 #include <vector>
 // #include <chrono>
@@ -40,7 +40,7 @@ struct imu_data_t
     unsigned int pressure = 0;
 };
 
-int imu_init(int address);
+int imu_init();
 bool go_to_config();
 bool go_to_measurement();
 imu_data_t imu_read_data();

@@ -1,4 +1,6 @@
 #include "imu.h"
+#include "../Altimiter/spi.h"
+#include <wiringPi.h>
 
 static int file = 0; // File descriptor
 static int heading_byte_offset = 0; // Heading data offset from start of messages in bytes
@@ -8,21 +10,26 @@ static int del_v_byte_offset = 0; // Delta V data offset from start of messages 
 static vector<unsigned char> buf; // Buffer where received data is stored
 
 // Initializes IMU file and sets I2C slave
-int imu_init(int address)
+int imu_init()
 {
     // Open the I2C device file
-    if ((file = open("/dev/i2c-1", O_RDWR)) < 0)
-    {
-        cout << "Error opening I2C device file" << endl;
-        return -1;
-    }
+    // if ((file = open("/dev/i2c-1", O_RDWR)) < 0)
+    // {
+    //     cout << "Error opening I2C device file" << endl;
+    //     return -1;
+    // }
 
-    // Set the device address
-    if (ioctl(file, I2C_SLAVE, address) < 0)
-    {
-        cout << "Error setting I2C device address" << endl;
-        return -1;
-    }
+    // // Set the device address
+    // if (ioctl(file, I2C_SLAVE, address) < 0)
+    // {
+    //     cout << "Error setting I2C device address" << endl;
+    //     return -1;
+    // }
+
+    // digitalWrite(14, HIGH);
+    file = spi_open("/dev/spidev0.0", SPI_MODE_3);
+
+    // go_to_measurement();
 
     buf.resize(110);
 
@@ -34,11 +41,13 @@ bool go_to_config()
 {
     char cmd[4] = {CNTRL_PIPE,0x30,0x00,0xD1};
 
-    if (write(file, cmd, 4) != 4)
-    {
-        std::cout << "Error writing to I2C device: device not set to config mode" << std::endl;
-        return false;
-    }
+    spi_write(file, cmd, 4);
+    // TODO, error checking
+    // if ( != 4)
+    // {
+    //     std::cout << "Error writing to I2C device: device not set to config mode" << std::endl;
+    //     return false;
+    // }
     return true;
 }
 
@@ -47,11 +56,13 @@ bool go_to_measurement()
 {
     char cmd[4] = {CNTRL_PIPE,0x10,0x00,0xF1};
 
-    if (write(file, cmd, 4) != 4)
-    {
-        std::cout << "Error writing to I2C device: device not set to measurement mode" << std::endl;
-        return false;
-    }
+    spi_write(file, cmd, 4);
+    // TODO, error checking
+    // if (write(file, cmd, 4) != 4)
+    // {
+    //     std::cout << "Error writing to I2C device: device not set to measurement mode" << std::endl;
+    //     return false;
+    // }
     return true;
 }
 
@@ -60,28 +71,46 @@ imu_data_t imu_read_data()
 {
     imu_data_t imu_data;
 
-    const unsigned char READ_DATA = MEAS_PIPE;
+    char send[111] = {0};
+    send[0] = MEAS_PIPE;
+    // const unsigned char READ_DATA = MEAS_PIPE;
+    char receive[111] = {0};
 
-    if (write(file, &READ_DATA, 1) != 1 || read(file, &buf[0], buf.size()) != buf.size())
+    spi_transact(file, send, receive, 5);
+    for (int i = 0; i < buf.size(); i++)
     {
-        for (int i = 0; i < buf.size(); i++)
-        {
-            cout << hex << (int)buf[i] << " ";
-        }
-        cout << endl;
-        cout << "Error writing/reading from I2C device" << endl;
-        return imu_data;
+        buf[i] = receive[i+1];
     }
+    return imu_data;
+
+
+    // if (write(file, &READ_DATA, 1) != 1 || read(file, &buf[0], buf.size()) != buf.size())
+    // {
+        
+        
+        // for (int i = 0; i < buf.size(); i++)
+        // {
+        //     cout << hex << (int)buf[i] << " ";
+        // }
+        // cout << endl;
+        // cout << "Error writing/reading from I2C device" << endl;
+        // return imu_data;
+    // }
 
     while (!check_sum())
     {
-        // cout << "check sum fail" << endl;
+        cout << "check sum fail" << endl;
         busy10ns(150000);
-        if (write(file, &READ_DATA, 1) != 1 || read(file, &buf[0], buf.size()) != buf.size())
+        spi_transact(file, send, receive, 111);
+        for (int i = 0; i < buf.size(); i++)
         {
-            cout << "Error writing/reading from I2C device" << endl;
-            return imu_data;
+            buf[i] = receive[i+1];
         }
+        // if (write(file, &READ_DATA, 1) != 1 || read(file, &buf[0], buf.size()) != buf.size())
+        // {
+        //     cout << "Error writing/reading from I2C device" << endl;
+        //     return imu_data;
+        // }
     }
 
     parse_msg(imu_data);

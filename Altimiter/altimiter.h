@@ -44,7 +44,7 @@
 
 int alt_init()
 {
-    int file = spi_open("/dev/spidev0.1");
+    int file = spi_open("/dev/spidev0.1", SPI_MODE_3);
 
     // Reset
     char tx = CMD_RESET;
