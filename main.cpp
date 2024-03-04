@@ -137,12 +137,23 @@ int main()
     vector<float> temp_cal;
     float T0 = temp_expected;
     float P0 = press_expected;
+    int cal_count = 0;
 
 
     //While loop that runs until the APOGEE_DETECTED state is reach, aka this is run from being powered on the pad to apogee
     while (true && state.status != state_t::APOGEE_DETECTED)
     {
         cur = chrono::high_resolution_clock::now();
+
+        if (chrono::duration<double>(cur-cal).count() >= 120.0 && cal_count == 0 && state.status == state_t::ARMED)
+        {
+            state.altimeter.filt_pressure4 = P0;
+            state.altimeter.filt_pressure3 = P0;
+            state.altimeter.filt_pressure2 = P0;
+            state.altimeter.filt_pressure1 = P0;
+            state.altimeter.filt_pressure = P0;
+            cal_count = 1;
+        }
         state.imu_data = imu_read_data();       //Read from imu and write to the state imu data struct
         rotation(state);
         //add a read from the altimeter here : state.altimeter.pressure = read from altimeter
@@ -150,8 +161,8 @@ int main()
         state.altimeter.z = pressure_to_altitude(state, T0, P0);
 
         //Find the current xdot, zdot, and Mach number
-        xdot_calc(state);       //in m/s i think
-        zdot_calc(state);       //in m/s i think
+        xdot_calc(state);       //in m/s i think, NOT DONE
+        zdot_calc(state);       //in m/s i think, NOT DONE
         Mach_calc(state);       //dimensionless
 
         //Initialize the dynamics model object if switched to Actuation state
@@ -234,11 +245,7 @@ void ARMED_status(state_t &state, pair<long, state_t> (&launch_detect_log)[1024]
         {
             state.altimeter.temp = temp_expected;       //set temp to expected value if not in expected ranged
         }
-        else if (state.altimeter.pressure > press_max || state.altimeter.pressure < press_min)  //Check if pressure in expected range
-        {
-            state.altimeter.pressure = press_expected;      //set pressure to expected value if not in expected range
-        }
-
+        
         press_cal.push_back(state.altimeter.pressure);  //Add the pressure value to the pressure cal vector
         temp_cal.push_back(state.altimeter.temp);       //Add the temp value to the temp cal vector
 
@@ -596,9 +603,12 @@ void rotation(state_t &state)
 
 float pressure_to_altitude(state_t &state, float T0, float P0)
 {
+    if (state.status != state_t::PAD || state.status == state_t::ARMED)
+    {
     float pressure = state.altimeter.pressure;      //In Pa
     float altitude = (T0/lapse)*(1-pow(pressure/P0,lapse*(R/g)));       //In meters
     return altitude;
+    }
 }
 
 void xdot_calc(state_t &state)
@@ -670,19 +680,36 @@ void Mach_calc(state_t &state)
 
 void pressure_filter(state_t &state, chrono::_V2::system_clock::time_point cal, chrono::_V2::system_clock::time_point cur)
 {
-    int count = 0;
 
-    if (count <= 5 && (state.altimeter.pressure > press_max || state.altimeter.pressure < press_min) )
+    //If we are still in the calibration part
+    if (state.status == state_t::ARMED && chrono::duration<double>(cur-cal).count() < 120.0)
     {
-        state.altimeter.pressure = press_expected;
+        if (state.altimeter.pressure > press_max || state.altimeter.pressure < press_min)
+        {
+            state.altimeter.pressure = press_expected; 
+        }
+
+        state.altimeter.pressure4 = state.altimeter.pressure3;
+        state.altimeter.pressure3 = state.altimeter.pressure2;
+        state.altimeter.pressure2 = state.altimeter.pressure1;
+        state.altimeter.pressure1 = state.altimeter.pressure;
+        
     }
 
-    //Add the buterrworth filter for pressure here
+    //If we are out of the calibration part, filter the pressures using the butterworth filter
     if (state.status != state_t::PAD && chrono::duration<double>(cur - cal).count() > 120.0)
     {
-        //Butterworth fitler on the pressure reading
+        state.altimeter.filt_pressure = state.altimeter.filt_pressure1*1.143 - state.altimeter.filt_pressure2*0.4128 + state.altimeter.pressure*0.675 + state.altimeter.pressure1*0.1349 + state.altimeter.pressure2*0.0675;
+        state.altimeter.filt_pressure4 = state.altimeter.filt_pressure3;
+        state.altimeter.filt_pressure3 = state.altimeter.filt_pressure2;
+        state.altimeter.filt_pressure2 = state.altimeter.filt_pressure1;
+        state.altimeter.filt_pressure1 = state.altimeter.filt_pressure;
+
+        state.altimeter.pressure4 = state.altimeter.pressure3;
+        state.altimeter.pressure3 = state.altimeter.pressure2;
+        state.altimeter.pressure2 = state.altimeter.pressure1;
+        state.altimeter.pressure1 = state.altimeter.pressure;
     }
-    count += 1;
 }
 
 float axes_mag(axes_t &axes)
