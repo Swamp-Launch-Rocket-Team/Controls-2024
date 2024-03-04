@@ -11,7 +11,15 @@ struct state_t
     //Altimeter altitude
     struct altimeter_t
     {
+        float pressure4 = 0.0;    
+        float pressure3 = 0.0;
+        float pressure2 = 0.0;
+        float pressure1 = 0.0;
         float pressure = 0.0;
+        float z4 = 0.0;
+        float z3 = 0.0;
+        float z2 = 0.0;
+        float z1 = 0.0;
         float z = 0.0;
     } altimeter;
 
