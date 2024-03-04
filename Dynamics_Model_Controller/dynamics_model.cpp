@@ -10,8 +10,8 @@ using namespace std;
 
 //defines
 #define g 9.81
-#define m 33.94
-#define theta_0 13
+#define m 33.94     //DEPENDENT
+// #define theta_0 13
 #define m_to_ft 3.28084
 #define pi 3.14159265
 
@@ -157,12 +157,12 @@ float dynamics_model::Calc_rho(float z)
 	// 
 	//float z = 3002.3;     //Altitude [m], THIS IS THE INPUT
 
-	float T0 = 310;        //Temperature at ground level [K]
+	float T0 = 310;        //Temperature at ground level [K], DEPENDENT
 	float L = 0.0065;      //Lapse rate 
 
 	float T = T0 - L * z;        //Temperature at current altitude [K]
 
-	float rho0 = 1.13;     //Air density at ground level, THIS NEEDS TO CHANGE BASED ON FLORIDA OR SPACEPORT LAUNCH SITE
+	float rho0 = 1.13;     //Air density at ground level, THIS NEEDS TO CHANGE BASED ON FLORIDA OR SPACEPORT LAUNCH SITE, DEPENDENT
 	// float g = 9.81;        //Gravity [m/s^2]
 	float R = 287.0531;    //Universal gas constant for air
 

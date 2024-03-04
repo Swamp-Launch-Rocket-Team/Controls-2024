@@ -37,9 +37,6 @@ float controller::controller_loop(double apogee_expected, double Mach, double al
     //do other stuff
     //end? idk 
 
-        //Read the IMU for velocity to get Mach number: JK this will be done outside of the controller, this is now an input
-        //Read the altimeter for the altitude: JK this will be done outside of the controller, this is now an input
-
     //Get current gains
     PI cur_gains;
     // cout << "Current Kp Gain:" << "\t" << cur_gains.get_kp() << "\t" << "Current Ki Gain:" << "\t" << cur_gains.get_ki() << endl;
@@ -52,7 +49,7 @@ float controller::controller_loop(double apogee_expected, double Mach, double al
     double proportional = cur_gains.get_kp()*(cur_error);
     //cout << "Proportional Portion:" << "\t" << proportional << endl;
 
-    // if(proportional < 0)     //Idk if we need this?????
+    // if(proportional < 0)     
     // {
     //     proportional = 0;
     // }

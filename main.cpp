@@ -8,6 +8,7 @@
 #include <ctime>
 #include <iomanip>
 #include <sstream>
+#include <numeric>
 #include <wiringPi.h>
 
 //
@@ -22,11 +23,18 @@
 #define m_to_ft 3.28084
 #define R 287.058
 #define g 9.81
+#define press_expected 101500.0        //Expected pressure at launch site in Pa, DEPENDENT 
+#define temp_expected 300.0            //Expected temperature at launch site in kelvin, DEPENDENT
+#define press_min 90000.0              //Min for outlier of, DEPENDENT
+#define press_max 105000.0             //Max outlier for press, DEPENDENT
+#define temp_min 288.0                 //Min temp in KELVIN, DEPENDENT
+#define temp_max 320.0                 //Max temp in KELVIN, DEPENDENT
+#define lapse 0.0065                  //Lapse rate for pressure to altitude calc
 
 //
 //Here list the "prototypes", this is just the initialization of the functions, all state transition functions, write data, launch detect, send servo command, etc..
-void PAD_status(int Pwm_pin, float Pwm_home_value, float Pwm_max_value, state_t &state);
-void ARMED_status(state_t &state, pair<long, state_t> (&launch_detect_log)[1024], int &index, chrono::_V2::system_clock::time_point start, chrono::_V2::system_clock::time_point &launch_time);
+void PAD_status(int Pwm_pin, float Pwm_home_value, float Pwm_max_value, state_t &state, chrono::_V2::system_clock::time_point &cal);
+void ARMED_status(state_t &state, pair<long, state_t> (&launch_detect_log)[1024], int &index, chrono::_V2::system_clock::time_point start, chrono::_V2::system_clock::time_point &launch_time, chrono::_V2::system_clock::time_point cal, chrono::_V2::system_clock::time_point cur, vector<float> &press_cal, vector<float> &temp_cal, float &T0, float &P0);
 void LAUNCH_DETECTED_status(state_t &state, chrono::_V2::system_clock::time_point &motor_burn_time, float &theta_0, chrono::_V2::system_clock::time_point launch_time, chrono::_V2::system_clock::time_point cur, unordered_map<int, float> &theta_map, int &ii);  //Needs more inputs i think
 void ACTUATION_status(int Pwm_pin, float Pwm_home_value, float Pwm_max_value, state_t &state, float &x, float &U_airbrake, dynamics_model &dynamics, controller &airbrake, chrono::_V2::system_clock::time_point motor_burn_time, chrono::_V2::system_clock::time_point &apogee_time, chrono::_V2::system_clock::time_point cur, int &ii);  //Need to add other stuff
 void APOGEE_DETECTED_status(state_t &state, list<pair<long, state_t>> &data_log, int Pwm_pin, float Pwm_home_value);
@@ -37,10 +45,12 @@ float axes_mag(axes_t &axes);       //Prolly don't need this, can just pull the 
 unordered_map<int, float> pitchanglevector(float theta_0);       //USE THIS IN MAIN
 // pair<vector<int>, vector<float>> pitchanglevector(float theta_0); 
 //Idk if I actually need these next 2 functions, can possibly add a method in the state header that calcs these 2 quants and add these to a new struct maybe      
+void rotation(state_t &state);
 void xdot_calc(state_t &state);
 void zdot_calc(state_t &state);     //Also needs altitude for the derivative as input!!!
 void Mach_calc(state_t &state);
-float pressure_to_altitude(state_t &state);
+float pressure_to_altitude(state_t &state, float T0, float P0);
+void pressure_filter(state_t &state, chrono::_V2::system_clock::time_point cal, chrono::_V2::system_clock::time_point cur);
 //
 
 using namespace std;
@@ -51,7 +61,7 @@ int main()
     //Initialize IMU
     int file;
     int imu_address = 0x6B;
-    file = imu_init(imu_address);
+    file = imu_init();
 
     //Initialize Altimeter
     //
@@ -94,6 +104,7 @@ int main()
     //Initialize and define variables for starting time and current time
     auto start = chrono::high_resolution_clock::now();
     auto cur = chrono::high_resolution_clock::now();
+    auto cal = chrono::high_resolution_clock::now();
     auto launch_time = chrono::high_resolution_clock::now();        //This needs to get reset once launch is detected
     auto motor_burn_time = chrono::high_resolution_clock::now();    //This gets reset once motor burn is detected
     auto apogee_time = chrono::high_resolution_clock::now();    //This gets reset once apogee has been detected
@@ -122,13 +133,22 @@ int main()
     airbrake.init_controller(Pwm_home_value, Pwm_max_value);
 
 
+    //Vectors for pressure and temperature calibration
+    vector<float> press_cal{0.0};
+    vector<float> temp_cal{0.0};
+    float T0 = temp_expected;
+    float P0 = press_expected;
+
+
     //While loop that runs until the APOGEE_DETECTED state is reach, aka this is run from being powered on the pad to apogee
     while (true && state.status != state_t::APOGEE_DETECTED)
     {
         cur = chrono::high_resolution_clock::now();
-        state.imu_data = imu_read_data();
+        state.imu_data = imu_read_data();       //Read from imu and write to the state imu data struct
+        rotation(state);
         //add a read from the altimeter here : state.altimeter.pressure = read from altimeter
-        state.altimeter.z = pressure_to_altitude(state);
+        pressure_filter(state, cal, cur);
+        state.altimeter.z = pressure_to_altitude(state, T0, P0);
 
         //Find the current xdot, zdot, and Mach number
         xdot_calc(state);       //in m/s i think
@@ -147,12 +167,12 @@ int main()
         {
             case state_t::PAD:
                 //PAD_status() this function will call the PAD_status void function that will do the servo extension test
-                PAD_status(Pwm_pin, Pwm_home_value, Pwm_max_value, state);
+                PAD_status(Pwm_pin, Pwm_home_value, Pwm_max_value, state, cal);
                 break;
 
             case state_t::ARMED:
                 //ARMED_status() this function will call the ARMED_status void function that will call the detect_launch function
-                ARMED_status(state, launch_detect_log, launch_detect_log_index, start, launch_time);
+                ARMED_status(state, launch_detect_log, launch_detect_log_index, start, launch_time, cal, cur, press_cal, temp_cal, T0, P0);
                 break;
 
             case state_t::LAUNCH_DETECTED:
@@ -182,7 +202,7 @@ int main()
 
 //
 //Add all of the void state status functions here
-void PAD_status(int Pwm_pin, float Pwm_home_value, float Pwm_max_value, state_t &state)
+void PAD_status(int Pwm_pin, float Pwm_home_value, float Pwm_max_value, state_t &state, chrono::_V2::system_clock::time_point &cal)
 {
     float end_val = 0;
     for(int i = Pwm_home_value; i < Pwm_max_value; i = i + 10)
@@ -201,12 +221,33 @@ void PAD_status(int Pwm_pin, float Pwm_home_value, float Pwm_max_value, state_t 
     pwmWrite(Pwm_pin, Pwm_home_value);
 
     state.status = state_t::ARMED;
+    cal = chrono::high_resolution_clock::now();
 
     return;
 }
 
-void ARMED_status(state_t &state, pair<long, state_t> (&launch_detect_log)[1024], int &index, chrono::_V2::system_clock::time_point start, chrono::_V2::system_clock::time_point &launch_time)
-{    
+void ARMED_status(state_t &state, pair<long, state_t> (&launch_detect_log)[1024], int &index, chrono::_V2::system_clock::time_point start, chrono::_V2::system_clock::time_point &launch_time, chrono::_V2::system_clock::time_point cal, chrono::_V2::system_clock::time_point cur, vector<float> &press_cal, vector<float> &temp_cal, float &T0, float &P0)
+{   
+
+    if (chrono::duration<double>(cur - cal).count() < 120.0)        //Add pressure and temp to calibration vectors if time less than 2 mins
+    {
+        if (state.altimeter.temp > temp_max || state.altimeter.temp < temp_min) //Check to make sure temp is in expected range
+        {
+            state.altimeter.temp = temp_expected;       //set temp to expected value if not in expected ranged
+        }
+        else if (state.altimeter.pressure > press_max || state.altimeter.pressure < press_min)  //Check if pressure in expected range
+        {
+            state.altimeter.pressure = press_expected;      //set pressure to expected value if not in expected range
+        }
+
+        press_cal.push_back(state.altimeter.pressure);  //Add the pressure value to the pressure cal vector
+        temp_cal.push_back(state.altimeter.temp);       //Add the temp value to the temp cal vector
+
+        P0 = (accumulate(press_cal.begin(),press_cal.end(),0.0))/press_cal.size();  //Find the average pressure and set to ground pressure
+        T0 = (accumulate(temp_cal.begin(),temp_cal.end(),0.0)/temp_cal.size());     //Find the average temp and set to ground temp   
+
+    }
+
     launch_detect_log[index & 1023] = make_pair(chrono::duration_cast<chrono::microseconds>(chrono::high_resolution_clock::now() - start).count(), state);
 
     if (detect_launch(launch_detect_log, index))
@@ -225,7 +266,7 @@ void LAUNCH_DETECTED_status(state_t &state, chrono::_V2::system_clock::time_poin
     //Have motor burn detection function here, or simply a time delay equal to the motor burn + maybe 0.25 seconds?
 
     //Time delay implementation
-    float t_burn_expected = 4.4;    //Reported motor burn time from OpenRocket/Aerotech
+    float t_burn_expected = 4.4;    //Reported motor burn time from OpenRocket/Aerotech, DEPENDENT
     if (chrono::duration<double>(cur - launch_time).count() >= t_burn_expected + 0.25)
     {
         motor_burn_time = chrono::high_resolution_clock::now();
@@ -256,8 +297,8 @@ void ACTUATION_status(int Pwm_pin, float Pwm_home_value, float Pwm_max_value, st
     // auto t_start = chrono::high_resolution_clock::now();
     ii = 2;
 
-    float t_min = 16.0;     //minimum time expected to apogee from end of motor burn
-    float t_max = 26.0;     //max time expected to apogee from end of motor burn
+    float t_min = 16.0;     //minimum time expected to apogee from end of motor burn, DEPENDENT
+    float t_max = 26.0;     //max time expected to apogee from end of motor burn, DEPENDENT
 
     float t = 0.0;
     float dt = 0.1;
@@ -549,10 +590,15 @@ unordered_map<int, float> pitchanglevector(float theta_0)
 //     return {theta_region,theta_vector};
 // }
 
-float pressure_to_altitude(state_t &state)
+void rotation(state_t &state)
 {
-    float pressure = state.altimeter.pressure*100.0;
-    float altitude = (288.15/0.0065)*(1-(pow(pressure/101325,0.0065*(R/g))));
+    //Rotation matrix for accel data from rocket frame to ground frame
+}
+
+float pressure_to_altitude(state_t &state, float T0, float P0)
+{
+    float pressure = state.altimeter.pressure;      //In Pa
+    float altitude = (T0/lapse)*(1-pow(pressure/P0,lapse*(R/g)));       //In meters
     return altitude;
 }
 
@@ -573,14 +619,11 @@ void xdot_calc(state_t &state)
         state.velo.xdot_4 = 0.0;
         state.velo.xdot = 0.0;
     }
-    else if (state.status == state_t::LAUNCH_DETECTED)
+    else if (state.status == state_t::LAUNCH_DETECTED || state.status == state_t::ACTUATION)
     {
         //Use the butterworth filter for xdot
     }
-    else if (state.status == state_t::ACTUATION)
-    {
-        //Use Klaman method for xdot
-    }
+    
 
 }
 
@@ -600,14 +643,14 @@ void zdot_calc(state_t &state)     //Also needs altitude for the derivative as i
         state.velo.zdot_4 = 0.0;
         state.velo.zdot = 0.0;
     }
-    else if (state.status == state_t::LAUNCH_DETECTED)
+    else if (state.status == state_t::LAUNCH_DETECTED || state.status == state_t::ACTUATION)
     {
         //Use the butterworth filter for zdot
     }
-    else if (state.status == state_t::ACTUATION)
-    {
-        //Use Klaman method for zdot
-    }
+    // else if (state.status == state_t::ACTUATION)
+    // {
+    //     //Use Klaman method for zdot
+    // }
 }
 
 void Mach_calc(state_t &state)
@@ -619,10 +662,28 @@ void Mach_calc(state_t &state)
     else
     {
         float V_rocket = (sqrt(pow(state.velo.xdot, 2) + pow(state.velo.zdot,2)))*m_to_ft;  //in ft/s
-        float h = 4595.0 + state.altimeter.z*m_to_ft;   //in ft
+        float h = 4595.0 + state.altimeter.z*m_to_ft;   //in ft, first value is DEPENDENT on the launch site
         float a = -0.004 * h + 1116.45;
         state.velo.Mach = V_rocket/a;       //Mach number
     }
+}
+
+
+void pressure_filter(state_t &state, chrono::_V2::system_clock::time_point cal, chrono::_V2::system_clock::time_point cur)
+{
+    int count = 0;
+
+    if (count == 0 && (state.altimeter.pressure > press_max || state.altimeter.pressure < press_min) )
+    {
+        state.altimeter.pressure = press_expected;
+    }
+
+    //Add the buterrworth filter for pressure here
+    if (state.status != state_t::PAD && chrono::duration<double>(cur - cal).count() > 120.0)
+    {
+        //Butterworth fitler on the pressure reading
+    }
+    count += 1;
 }
 
 float axes_mag(axes_t &axes)
