@@ -44,10 +44,9 @@ bool detect_launch(pair<long, state_t> (&launch_detect_log)[1024], int index);
 float axes_mag(axes_t &axes);       //Prolly don't need this, can just pull the indiv values instead of having a function
 unordered_map<int, float> pitchanglevector(float theta_0);       //USE THIS IN MAIN
 // pair<vector<int>, vector<float>> pitchanglevector(float theta_0); 
-//Idk if I actually need these next 2 functions, can possibly add a method in the state header that calcs these 2 quants and add these to a new struct maybe      
 void rotation(state_t &state);
 void xdot_calc(state_t &state);
-void zdot_calc(state_t &state);     //Also needs altitude for the derivative as input!!!
+void zdot_calc(state_t &state);     
 void Mach_calc(state_t &state);
 float pressure_to_altitude(state_t &state, float T0, float P0);
 void pressure_filter(state_t &state, chrono::_V2::system_clock::time_point cal, chrono::_V2::system_clock::time_point cur);
@@ -134,8 +133,8 @@ int main()
 
 
     //Vectors for pressure and temperature calibration
-    vector<float> press_cal{0.0};
-    vector<float> temp_cal{0.0};
+    vector<float> press_cal;
+    vector<float> temp_cal;
     float T0 = temp_expected;
     float P0 = press_expected;
 
@@ -673,7 +672,7 @@ void pressure_filter(state_t &state, chrono::_V2::system_clock::time_point cal, 
 {
     int count = 0;
 
-    if (count == 0 && (state.altimeter.pressure > press_max || state.altimeter.pressure < press_min) )
+    if (count <= 5 && (state.altimeter.pressure > press_max || state.altimeter.pressure < press_min) )
     {
         state.altimeter.pressure = press_expected;
     }

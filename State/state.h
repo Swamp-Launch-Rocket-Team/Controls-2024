@@ -16,11 +16,14 @@ struct state_t
         float pressure2 = 0.0;
         float pressure1 = 0.0;
         float pressure = 0.0;
+
+        float filt_pressure4 = 0.0;
+        float filt_pressure3 = 0.0;
+        float filt_pressure2 = 0.0;
+        float filt_pressure1 = 0.0;
+
         float temp = 0.0;
-        float z4 = 0.0;
-        float z3 = 0.0;
-        float z2 = 0.0;
-        float z1 = 0.0;
+
         float z = 0.0;
     } altimeter;
 
