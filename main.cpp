@@ -34,7 +34,7 @@
 //
 //Here list the "prototypes", this is just the initialization of the functions, all state transition functions, write data, launch detect, send servo command, etc..
 void PAD_status(int Pwm_pin, float Pwm_home_value, float Pwm_max_value, state_t &state, chrono::_V2::system_clock::time_point &cal);
-void ARMED_status(state_t &state, pair<long, state_t> (&launch_detect_log)[1024], int &index, chrono::_V2::system_clock::time_point start, chrono::_V2::system_clock::time_point &launch_time, chrono::_V2::system_clock::time_point cal, chrono::_V2::system_clock::time_point cur, vector<float> &press_cal, vector<float> &temp_cal, float &T0, float &P0);
+void ARMED_status(state_t &state, chrono::_V2::system_clock::time_point start, chrono::_V2::system_clock::time_point &launch_time, chrono::_V2::system_clock::time_point cal, chrono::_V2::system_clock::time_point cur, vector<float> &press_cal, vector<float> &temp_cal, float &T0, float &P0, int &launch_count);
 void LAUNCH_DETECTED_status(state_t &state, chrono::_V2::system_clock::time_point &motor_burn_time, float &theta_0, chrono::_V2::system_clock::time_point launch_time, chrono::_V2::system_clock::time_point cur, unordered_map<int, float> &theta_map, int &ii);  //Needs more inputs i think
 void ACTUATION_status(int Pwm_pin, float Pwm_home_value, float Pwm_max_value, state_t &state, float &x, float &U_airbrake, dynamics_model &dynamics, controller &airbrake, chrono::_V2::system_clock::time_point motor_burn_time, chrono::_V2::system_clock::time_point &apogee_time, chrono::_V2::system_clock::time_point cur, int &ii);  //Need to add other stuff
 void APOGEE_DETECTED_status(state_t &state, list<pair<long, state_t>> &data_log, int Pwm_pin, float Pwm_home_value);
@@ -138,6 +138,7 @@ int main()
     float T0 = temp_expected;
     float P0 = press_expected;
     int cal_count = 0;
+    int launch_count = 0;
 
 
     //While loop that runs until the APOGEE_DETECTED state is reach, aka this is run from being powered on the pad to apogee
@@ -182,7 +183,7 @@ int main()
 
             case state_t::ARMED:
                 //ARMED_status() this function will call the ARMED_status void function that will call the detect_launch function
-                ARMED_status(state, launch_detect_log, launch_detect_log_index, start, launch_time, cal, cur, press_cal, temp_cal, T0, P0);
+                ARMED_status(state, start, launch_time, cal, cur, press_cal, temp_cal, T0, P0, launch_count);
                 break;
 
             case state_t::LAUNCH_DETECTED:
@@ -236,7 +237,7 @@ void PAD_status(int Pwm_pin, float Pwm_home_value, float Pwm_max_value, state_t 
     return;
 }
 
-void ARMED_status(state_t &state, pair<long, state_t> (&launch_detect_log)[1024], int &index, chrono::_V2::system_clock::time_point start, chrono::_V2::system_clock::time_point &launch_time, chrono::_V2::system_clock::time_point cal, chrono::_V2::system_clock::time_point cur, vector<float> &press_cal, vector<float> &temp_cal, float &T0, float &P0)
+void ARMED_status(state_t &state, chrono::_V2::system_clock::time_point start, chrono::_V2::system_clock::time_point &launch_time, chrono::_V2::system_clock::time_point cal, chrono::_V2::system_clock::time_point cur, vector<float> &press_cal, vector<float> &temp_cal, float &T0, float &P0, int &launch_count)
 {   
 
     if (chrono::duration<double>(cur - cal).count() < 120.0)        //Add pressure and temp to calibration vectors if time less than 2 mins
@@ -254,15 +255,11 @@ void ARMED_status(state_t &state, pair<long, state_t> (&launch_detect_log)[1024]
 
     }
 
-    launch_detect_log[index & 1023] = make_pair(chrono::duration_cast<chrono::microseconds>(chrono::high_resolution_clock::now() - start).count(), state);
-
-    if (detect_launch(launch_detect_log, index))
+    if (detect_launch(state, launch_count))
     {
         state.status = state_t::LAUNCH_DETECTED;
         launch_time = chrono::high_resolution_clock::now();
     }
-
-    index++;
 
     return;
 }
@@ -351,45 +348,42 @@ void APOGEE_DETECTED_status(state_t &state, list<pair<long, state_t>> &data_log,
 
 //
 //Add all of the other functions here: launch detect, maybe servo arming, detect motor burn end, detect apogee, write data from Jasons main, 
-bool detect_launch(pair<long, state_t> (&launch_detect_log)[1024], int index)
+bool detect_launch(state_t state, int &launch_count)
 {
-    float sorted_log[300];
+    float detection_acceleration = 5.0 * 9.81;
+    // fix bs way too high numbers by setting to 0
 
-    float p_avg_accel = 0;
-
-    for (int i = 0; i < 300; ++i)
-    {
-        p_avg_accel += axes_mag(launch_detect_log[(index - (300 + i)) & 1023].second.imu_data.accel);
-    }
-
-    p_avg_accel /= 300;
-
-    float stdev = 0;
-
-    for (int i = 0; i < 300; ++i)
-    {
-        stdev += pow(axes_mag(launch_detect_log[(index - (300 + i)) & 1023].second.imu_data.accel) - p_avg_accel, 2.0);
-    }
-
-    stdev = sqrt(stdev / 299);
-
-    float avg_accel = 0;
-    int count;
-
-    for (int i = 0; i < 300; ++i)
-    {
-        if (axes_mag(launch_detect_log[(index - (300 + i)) & 1023].second.imu_data.accel) < 3 * stdev)
-        {
-            avg_accel += axes_mag(launch_detect_log[(index - (300 + i)) & 1023].second.imu_data.accel);
-            count++;
-        }
-    }
-
-    avg_accel /= count;
-
-    if (avg_accel > 5 * 9.8) // 5 gs of acceleration
-    {
+    if (launch_count > 10) {
         return true;
+    }
+
+    float x_accel = state.imu_data.accel.x;
+    float y_accel = state.imu_data.accel.y;
+    float z_accel = state.imu_data.accel.z;
+
+    float max_accel = 9.81*16.0;
+
+    if (x_accel > max_accel) {
+        x_accel = 0;
+    }
+    if (y_accel > max_accel) {
+        y_accel = 0;
+    }
+    if (z_accel > max_accel) {
+        z_accel = 0;
+    }
+
+    z_accel -= 9.81;
+
+    float total_accel = sqrt(pow(x_accel, 2) + pow(y_accel, 2) + pow(z_accel, 2));
+
+    if (total_accel >= detection_acceleration) {
+        launch_count += 1;
+    }
+    else {
+        if (launch_count > 0) {
+            launch_count -= 1;
+        }
     }
 
     return false;
