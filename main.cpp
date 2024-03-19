@@ -41,7 +41,7 @@ void APOGEE_DETECTED_status(state_t &state, list<pair<long, state_t>> &data_log,
 
 
 bool detect_launch(pair<long, state_t> (&launch_detect_log)[1024], int index);
-float axes_mag(axes_t &axes);       //Prolly don't need this, can just pull the indiv values instead of having a function
+// float axes_mag(axes_t &axes);       //Prolly don't need this, can just pull the indiv values instead of having a function
 unordered_map<int, float> pitchanglevector(float theta_0);       //USE THIS IN MAIN
 // pair<vector<int>, vector<float>> pitchanglevector(float theta_0); 
 void rotation(state_t &state);
@@ -597,11 +597,16 @@ void rotation(state_t &state)
 
 float pressure_to_altitude(state_t &state, float T0, float P0)
 {
-    if (state.status != state_t::PAD || state.status == state_t::ARMED)
+    if (state.status != state_t::PAD || state.status != state_t::ARMED)
     {
     float pressure = state.altimeter.pressure;      //In Pa
     float altitude = (T0/lapse)*(1-pow(pressure/P0,lapse*(R/g)));       //In meters
     return altitude;
+    }
+    else
+    {
+        float altitude = 0.0;
+        return altitude;
     }
 }
 
@@ -610,8 +615,6 @@ void xdot_calc(state_t &state)
 
     //If statement that checks which state we are in
     //For pad and armed states -> set all xdot 0
-    //For launch detected state -> use the butter filter method
-    //For Actuation state -> use the Kalman method if possible
 
     if (state.status == state_t::PAD || state.status == state_t::ARMED)
     {
@@ -624,7 +627,7 @@ void xdot_calc(state_t &state)
     }
     else if (state.status == state_t::LAUNCH_DETECTED || state.status == state_t::ACTUATION)
     {
-        //Use the butterworth filter for xdot
+        //Use the integral method here or just a simple linear thing
     }
     
 
@@ -648,12 +651,9 @@ void zdot_calc(state_t &state)     //Also needs altitude for the derivative as i
     }
     else if (state.status == state_t::LAUNCH_DETECTED || state.status == state_t::ACTUATION)
     {
-        //Use the butterworth filter for zdot
+        //Take the derivative of the altitude using state.altimeter.z and state.altimeter.z_prev
     }
-    // else if (state.status == state_t::ACTUATION)
-    // {
-    //     //Use Klaman method for zdot
-    // }
+    
 }
 
 void Mach_calc(state_t &state)
@@ -706,8 +706,8 @@ void pressure_filter(state_t &state, chrono::_V2::system_clock::time_point cal, 
     }
 }
 
-float axes_mag(axes_t &axes)
-{
-    return sqrt(axes.x * axes.x + axes.y * axes.y + axes.z * axes.z);
-}
+// float axes_mag(axes_t &axes)
+// {
+//     return sqrt(axes.x * axes.x + axes.y * axes.y + axes.z * axes.z);
+// }
 //

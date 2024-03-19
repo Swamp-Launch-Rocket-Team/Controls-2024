@@ -25,6 +25,7 @@ struct state_t
 
         float temp = 0.0;
 
+        float z_prev = 0.0;
         float z = 0.0;
     } altimeter;
 
