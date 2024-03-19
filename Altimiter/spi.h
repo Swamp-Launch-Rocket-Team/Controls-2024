@@ -64,7 +64,7 @@ int spi_close(int file)
 * just do the call in the spi_transact function instead.
 */
 
-int spi_write(int fd, char *buf, unsigned count)
+int spi_write(const char *dev, char mode, char *buf, unsigned count)
 {
     int err;
     struct spi_ioc_transfer spi;
@@ -79,7 +79,22 @@ int spi_write(int fd, char *buf, unsigned count)
     spi.bits_per_word = 8;
     spi.cs_change = 0;
 
-    err = ioctl(fd, SPI_IOC_MESSAGE(1), &spi);
+    // digitalWrite(14, mode == SPI_MODE_0 ? LOW : HIGH);
+
+    int file = spi_open(dev, mode);
+
+    err = ioctl(file, SPI_IOC_MESSAGE(1), &spi);
+
+    spi_close(file);
+
+    // pinMode(14, OUTPUT);
+    // pinMode(10, OUTPUT);
+    // pinMode(11, OUTPUT);
+
+    // digitalWrite(14, LOW);
+    // digitalWrite(10, HIGH);
+    // digitalWrite(11, HIGH);
+    
 
     if (err < 0)
     {
@@ -87,13 +102,10 @@ int spi_write(int fd, char *buf, unsigned count)
         printf("Error: %s\n", strerror(errno));
     }
 
-    // digitalWrite(14, HIGH);
-    // digitalWrite(11, HIGH);
-
     return err;
 }
 
-int spi_transact(int fd, char *tx, char *rx, unsigned count)
+int spi_transact(const char *dev, char mode, char *tx, char *rx, unsigned count)
 {    
     int err;
     struct spi_ioc_transfer spi;
@@ -108,16 +120,29 @@ int spi_transact(int fd, char *tx, char *rx, unsigned count)
     spi.bits_per_word = 8;
     spi.cs_change = 0;
 
-    err = ioctl(fd, SPI_IOC_MESSAGE(1), &spi);
+    // digitalWrite(14, mode == SPI_MODE_0 ? LOW : HIGH);
+
+    int file = spi_open(dev, mode);
+
+    err = ioctl(file, SPI_IOC_MESSAGE(1), &spi);
+
+    spi_close(file);
+
+    // wiringPiSetup();
+
+    // pinMode(14, OUTPUT);
+    // pinMode(10, OUTPUT);
+    // pinMode(11, OUTPUT);
+
+    // digitalWrite(14, LOW);
+    // digitalWrite(10, HIGH);
+    // digitalWrite(11, HIGH);
 
     if (err < 0)
     {
         perror("SPI_IOC_MESSAGE failed");
         printf("Error: %s\n", strerror(errno));
     }
-
-    // digitalWrite(14, HIGH);
-    // digitalWrite(11, HIGH);
 
     return err;
 }

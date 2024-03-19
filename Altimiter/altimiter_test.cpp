@@ -2,22 +2,21 @@
 
 #include "spi.h"
 #include "altimiter.h"
+#include <wiringPi.h>
 
 int main(void)
-{
-    int alt = alt_init();
+{    
+    alt_init();
 
-    // uint16_t cal[6] = {0};
-    // alt_read_calibration(alt, cal);
+    uint16_t cal[6] = {0};
+    alt_read_calibration(cal);
 
-    // for (int i = 0; i < 6; i++)
-    // {
-    //     std::cout << cal[i] << std::endl;
-    // }
+    for (int i = 0; i < 6; i++)
+    {
+        std::cout << cal[i] << std::endl;
+    }
 
-    // get_temp_and_pressure(alt);
-
-    spi_close(alt);
+    get_temp_and_pressure();
 
     return 0;
 }

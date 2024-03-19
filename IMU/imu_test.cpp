@@ -8,12 +8,11 @@ void print_all(imu_data_t *imu_data);
 int main()
 {
     // Set up variables for the I2C device address, file descriptor, and data buffer
-    int file;
-    unsigned char data[40];
+    // unsigned char data[40];
 
-    imu_data_t imu_data;
+    // imu_data_t imu_data;
 
-    file = imu_init();
+    imu_init();
 
     // unsigned char test[19] = {CNTRL_PIPE,0xC0,0x10,0x20,0x30,0x00,0x64,0x40,0x30,0x00,0x64,0x80,0x20,0x00,0x64,0x40,0x10,0x00,0x64}; // set config
     // vector<unsigned char> cmd;
@@ -26,24 +25,20 @@ int main()
     // go_to_measurement();
     // sleep(3);
 
-    auto start = chrono::high_resolution_clock::now();
-    auto cur = chrono::high_resolution_clock::now();
+    // auto start = chrono::high_resolution_clock::now();
+    // auto cur = chrono::high_resolution_clock::now();
 
     // while (true)
     // {
         // start = chrono::high_resolution_clock::now();
 
-        imu_data = imu_read_data();
+        // imu_data = imu_read_data();
 
-        print_all(&imu_data);
+        // print_all(&imu_data);
 
         // cur = chrono::high_resolution_clock::now();
         // usleep(10000 - chrono::duration_cast<chrono::microseconds>(cur - start).count());
     // }
-
-
-    // Close the I2C device file
-    close(file);
 
     return 0;
 }

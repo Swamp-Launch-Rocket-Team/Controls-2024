@@ -42,21 +42,20 @@
 #define CALIBRATION_C5 33371
 #define CALIBRATION_C6 27363
 
-int alt_init()
-{
-    int file = spi_open("/dev/spidev0.1", SPI_MODE_3);
+#define ALT_SPI_DEVICE "/dev/spidev0.1"
+#define ALT_SPI_MODE SPI_MODE_0
 
+void alt_init()
+{
     // Reset
     char tx = CMD_RESET;
-    spi_write(file, &tx, 1);
+    spi_write(ALT_SPI_DEVICE, ALT_SPI_MODE, &tx, 1);
     
     // Chip has 2.8ms reload timing
     std::this_thread::sleep_for(std::chrono::milliseconds(3));
-
-    return file;
 }
 
-void alt_read_calibration(int file, uint16_t *calibration)
+void alt_read_calibration(uint16_t *calibration)
 {
     char commands[18] = {CMD_PROM_C1, 0x00, 0x00,
                         CMD_PROM_C2, 0x00, 0x00,
@@ -69,7 +68,7 @@ void alt_read_calibration(int file, uint16_t *calibration)
 
     for (uint8_t i = 0; i < 6; i++)
     {
-        spi_transact(file, commands + (3*i), buff + (3*i), 3);
+        spi_transact(ALT_SPI_DEVICE, ALT_SPI_MODE, commands + (3*i), buff + (3*i), 3);
     }
 
     calibration[0] = buff[1] << 8 | buff[2];
@@ -80,10 +79,10 @@ void alt_read_calibration(int file, uint16_t *calibration)
     calibration[5] = buff[16] << 8 | buff[17];
 }
 
-uint32_t sample(int file, char conv)
-{
+uint32_t sample(char conv)
+{    
     char tx = conv;
-    spi_write(file, &tx, 1);
+    spi_write(ALT_SPI_DEVICE, ALT_SPI_MODE, &tx, 1);
 
     // Max conversion is 9.04ms for 4096 conversion
     std::this_thread::sleep_for(std::chrono::milliseconds(10));
@@ -91,7 +90,7 @@ uint32_t sample(int file, char conv)
     char command[4] = {CMD_ADC_READ, 0x00, 0x00, 0x00};
     char buff[4] = {0};
 
-    spi_transact(file, command, buff, 4);
+    spi_transact(ALT_SPI_DEVICE, ALT_SPI_MODE, command, buff, 4);
 
     return buff[1] << 16 | buff[2] << 8 | buff[3];
 }
@@ -121,10 +120,10 @@ float Altitude_calc(float pressure)
     return altitude;
 }
 
-void get_temp_and_pressure(int file)
+void get_temp_and_pressure()
 {
-    uint32_t temp_sample = sample(file, CMD_CONVERT_TEMPERATURE_4096);
-    uint32_t press_sample = sample(file, CMD_CONVERT_PRESSURE_4096);
+    uint32_t temp_sample = sample(CMD_CONVERT_TEMPERATURE_4096);
+    uint32_t press_sample = sample(CMD_CONVERT_PRESSURE_4096);
     // std::cout << "SAMPLES: " << std::to_string(temp_sample) << ", " << std::to_string(press_sample) << std::endl;
 
     // Calculate temperature

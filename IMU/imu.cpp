@@ -2,7 +2,6 @@
 #include "../Altimiter/spi.h"
 #include <wiringPi.h>
 
-static int file = 0; // File descriptor
 static int heading_byte_offset = 0; // Heading data offset from start of messages in bytes
 static int accel_byte_offset = 0; // Acceleration data offset from start of messages in bytes
 static int ang_v_byte_offset = 0; // Angular velocity data offset from start of messages in bytes
@@ -27,42 +26,68 @@ int imu_init()
     // }
 
     // digitalWrite(14, HIGH);
-    file = spi_open("/dev/spidev0.0", SPI_MODE_3);
 
-    // go_to_measurement();
+    // wiringPiSetup();
+
+    // pinMode(14, OUTPUT);
+    // pinMode(11, OUTPUT);
+    // pinMode(10, OUTPUT);
+
+    // digitalWrite(10, LOW);
+    // digitalWrite(11, LOW);
+
+
+
+    // while (true)
+    // {
+    //     digitalWrite(14, HIGH);
+    //     delay(500);
+    //     digitalWrite(14, LOW);
+    //     delay(500);
+    // }
+
+    go_to_measurement();
 
     buf.resize(110);
 
-    return file;
+    return 0;
 }
 
 // Sets IMU to configuration state
 bool go_to_config()
-{
+{    
     char cmd[4] = {CNTRL_PIPE,0x30,0x00,0xD1};
 
-    spi_write(file, cmd, 4);
+    spi_write(IMU_SPI_DEVICE, IMU_SPI_MODE, cmd, 4);
     // TODO, error checking
     // if ( != 4)
     // {
     //     std::cout << "Error writing to I2C device: device not set to config mode" << std::endl;
     //     return false;
     // }
+
     return true;
 }
 
 // Sets IMU to measurement state
 bool go_to_measurement()
-{
+{    
     char cmd[4] = {CNTRL_PIPE,0x10,0x00,0xF1};
+    char buff[4] = {0};
 
-    spi_write(file, cmd, 4);
+    spi_transact(IMU_SPI_DEVICE, IMU_SPI_MODE, cmd, buff, 4);
+
+    for (int i = 0; i < 4; i++)
+    {
+        std::cout << hex << (int)buff[i] << std::endl;
+    }
     // TODO, error checking
     // if (write(file, cmd, 4) != 4)
     // {
     //     std::cout << "Error writing to I2C device: device not set to measurement mode" << std::endl;
     //     return false;
     // }
+
     return true;
 }
 
@@ -76,7 +101,7 @@ imu_data_t imu_read_data()
     // const unsigned char READ_DATA = MEAS_PIPE;
     char receive[111] = {0};
 
-    spi_transact(file, send, receive, 5);
+    spi_transact(IMU_SPI_DEVICE, IMU_SPI_MODE, send, receive, 5);
     for (int i = 0; i < buf.size(); i++)
     {
         buf[i] = receive[i+1];
@@ -101,7 +126,7 @@ imu_data_t imu_read_data()
     {
         cout << "check sum fail" << endl;
         busy10ns(150000);
-        spi_transact(file, send, receive, 111);
+        spi_transact(IMU_SPI_DEVICE, IMU_SPI_MODE, send, receive, 111);
         for (int i = 0; i < buf.size(); i++)
         {
             buf[i] = receive[i+1];
@@ -261,6 +286,7 @@ imu_data_t rotate_axes(imu_data_t old_axes)
 // Takes cmd without checksum, calculates checksum and sends message to IMU
 bool send_xbus_msg(vector<unsigned char> cmd)
 {
+    int file = spi_open(IMU_SPI_DEVICE, IMU_SPI_MODE);
     unsigned char checksum = 0xFF;
 
     for (int i = 1; i < cmd.size(); ++i)
@@ -326,6 +352,7 @@ bool send_xbus_msg(vector<unsigned char> cmd)
 	// cout << hex << (int)ack[i] << " ";
     // }
 
+    close(file);
     return true;
 }
 
