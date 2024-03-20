@@ -207,7 +207,7 @@ void parse_msg(imu_data_t &imu_data)
         {
             parse_int(imu_data.pressure, i + 3);
         }
-        else if (buf[i] == 0x40 && buf[i+1] == 0x20 && buf[i+2] == 0x0C) // XDI_EulerAngles 100 Hz
+        else if (buf[i] == 0x40 && buf[i+1] == 0x30 && buf[i+2] == 0x0C) // XDI_EulerAngles 100 Hz
         {
             parse_float(imu_data.accel.x, i + 3);
             parse_float(imu_data.accel.y, i + 7);
