@@ -1,6 +1,8 @@
 #include "imu.h"
 #include <chrono>
 
+#include "../bitbang/bitbang.h"
+
 void print_data(unsigned char data[], int len);
 void print_data(const vector<unsigned char> &data);
 void print_all(imu_data_t *imu_data);
@@ -9,6 +11,7 @@ int main()
 {
     // Set up variables for the I2C device address, file descriptor, and data buffer
     // unsigned char data[40];
+    spi_init_bitbang();
 
     imu_data_t imu_data;
 

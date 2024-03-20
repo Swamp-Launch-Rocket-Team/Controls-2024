@@ -1,8 +1,7 @@
 #include "imu.h"
-#include "../Altimiter/spi.h"
 #include <wiringPi.h>
 
-#include "../Altimiter/bitbang.h"
+#include "../bitbang/bitbang.h"
 
 static int heading_byte_offset = 0; // Heading data offset from start of messages in bytes
 static int accel_byte_offset = 0; // Acceleration data offset from start of messages in bytes
@@ -47,8 +46,6 @@ int imu_init()
     //     digitalWrite(14, LOW);
     //     delay(500);
     // }
-
-    spi_init_bitbang();
 
     buf.resize(110);
 

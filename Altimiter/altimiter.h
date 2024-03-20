@@ -8,9 +8,7 @@
 #include <thread>
 #include <cmath>
 
-// #include "spi.h"
-
-#include "bitbang.h"
+#include "../bitbang/bitbang.h"
 
 #define CMD_RESET 0x1E // Reset
 
@@ -46,6 +44,12 @@
 
 // #define ALT_SPI_DEVICE "/dev/spidev0.1"
 // #define ALT_SPI_MODE SPI_MODE_0
+
+struct altimiter_t
+{
+   float pressure = 0;
+   float temp = 0; 
+};
 
 void alt_init()
 {   
@@ -121,16 +125,9 @@ T clamp(T val, T min, T max)
     return val;
 }
 
-#define R 287.058f
-#define g 9.81f
-float Altitude_calc(float pressure)
-{
-    pressure = pressure*100;        //mbar to Pa
-    float altitude = (288.15/0.0065)*(1-(pow(pressure/101325,0.0065*(R/g))));
-    return altitude;
-}
 
-void get_temp_and_pressure()
+
+altimiter_t get_temp_and_pressure()
 {
     uint32_t temp_sample = sample(CMD_CONVERT_TEMPERATURE_4096);
     uint32_t press_sample = sample(CMD_CONVERT_PRESSURE_4096);
@@ -141,8 +138,6 @@ void get_temp_and_pressure()
     dT = clamp<int32_t>(dT, -16776960, 16777216);
     int32_t temp = 2000 + (((dT * (float)CALIBRATION_C6)) / std::pow<int32_t, int32_t>(2, 23));
 
-    std::cout << "TEMP: " + std::to_string(temp / 100.0) << std::endl;
-
     // Calculate pressure
     int64_t off = CALIBRATION_C2 * std::pow<int64_t, int64_t>(2, 17) + (CALIBRATION_C4 * dT) / std::pow<int64_t, int64_t>(2, 6);
     off = clamp<int64_t>(off, -17179344900, 25769410560);
@@ -150,9 +145,9 @@ void get_temp_and_pressure()
     sens = clamp<int64_t>(sens, -8589672450, 12884705280);
     int32_t p = (press_sample * sens / std::pow<int64_t, int64_t>(2, 21) - off) / std::pow<int64_t, int64_t>(2, 15);
 
-    std::cout << "PRESS: " + std::to_string(p / 100.0f) << std::endl;
+    altimiter_t data;
+    data.pressure = p / 100.0f; // units is millibar
+    data.temp = temp / 100.0f; // units is C
 
-    float alt = Altitude_calc(p / 100.0f);
-
-    std::cout << "ALT: "  + std::to_string(alt) << std::endl;
+    return data;
 }

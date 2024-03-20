@@ -16,9 +16,13 @@
 #include "State/state.h"
 #include "Dynamics_Model_Controller/controller.h"
 #include "Dynamics_Model_Controller/dynamics_model.h"
-#include "Dynamics_Model_Controller/PI.h"
+#include "Dynamics_Model_Controller/pi.h"
 //#include "Servo/Servo_arming.h"
 //
+
+#include "Altimiter/altimiter.h"
+#include "IMU/imu.h"
+#include "bitbang/bitbang.h"
 
 #define m_to_ft 3.28084
 #define R 287.058
@@ -56,16 +60,14 @@ using namespace std;
 
 int main()
 {
-    //Initialize all Sensors and Subsystems
+    //Initialize SPI bitbang
+    spi_init_bitbang();
+    
     //Initialize IMU
-    int file;
-    int imu_address = 0x6B;
-    file = imu_init();
+    imu_init();
 
     //Initialize Altimeter
-    //
-
-
+    alt_init();
 
     //Initialize Servo Motor
     const int Pwm_pin = 23;              //GPIO hardware PWM pin
@@ -157,7 +159,10 @@ int main()
         }
         state.imu_data = imu_read_data();       //Read from imu and write to the state imu data struct
         rotation(state);
-        //add a read from the altimeter here : state.altimeter.pressure = read from altimeter
+        // Altimiter read
+        altimiter_t alt_data = get_temp_and_pressure(); // THIS DELAYS FOR 20ms, talk to Chris to change
+        state.altimeter.pressure = alt_data.pressure;
+        state.altimeter.temp = alt_data.temp;
         pressure_filter(state, cal, cur);
         state.altimeter.z = pressure_to_altitude(state, T0, P0);
 
