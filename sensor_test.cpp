@@ -1,5 +1,5 @@
 #include <iostream>
-
+#include <chrono>
 #include "Altimiter/altimiter.h"
 #include "IMU/imu.h"
 
@@ -32,9 +32,14 @@ int main()
 
     while (true)
     {
+        auto cur = chrono::high_resolution_clock::now();
+
         altimiter_t alt_data = get_temp_and_pressure();
 
         imu_data_t imu_data = imu_read_data();
+
+        auto t_sample = chrono::duration_cast<chrono::milliseconds>(chrono::high_resolution_clock::now() - cur).count();
+        std::cout << "Time to sample:\t" << std::endl;
 
         print_all(&imu_data);
 

@@ -12,17 +12,16 @@
 #include <wiringPi.h>
 
 //
-//Here list the includes for the other header files used, IMU, altimeter, state, dynamics model, controller, servo
+//Here list the includes for the other header files used, IMU, altimeter, state, dynamics model, controller
 #include "State/state.h"
 #include "Dynamics_Model_Controller/controller.h"
 #include "Dynamics_Model_Controller/dynamics_model.h"
 #include "Dynamics_Model_Controller/pi.h"
-//#include "Servo/Servo_arming.h"
-//
-
+#include "Dynamics_Model_Controller/drag.h"
 #include "Altimiter/altimiter.h"
 #include "IMU/imu.h"
 #include "bitbang/bitbang.h"
+#include "busynano/busynano.h"
 
 #define m_to_ft 3.28084
 #define R 287.058
@@ -44,7 +43,7 @@ void ACTUATION_status(int Pwm_pin, float Pwm_home_value, float Pwm_max_value, st
 void APOGEE_DETECTED_status(state_t &state, list<pair<long, state_t>> &data_log, int Pwm_pin, float Pwm_home_value);
 
 
-bool detect_launch(pair<long, state_t> (&launch_detect_log)[1024], int index);
+bool detect_launch(state_t state, int &launch_count);
 // float axes_mag(axes_t &axes);       //Prolly don't need this, can just pull the indiv values instead of having a function
 unordered_map<int, float> pitchanglevector(float theta_0);       //USE THIS IN MAIN
 // pair<vector<int>, vector<float>> pitchanglevector(float theta_0); 
@@ -378,7 +377,7 @@ bool detect_launch(state_t state, int &launch_count)
         z_accel = 0;
     }
 
-    z_accel -= 9.81;
+    // z_accel -= 9.81;     //Dont need anymore, the IMU reports acceleration relative to Earth's Gravity!
 
     float total_accel = sqrt(pow(x_accel, 2) + pow(y_accel, 2) + pow(z_accel, 2));
 
