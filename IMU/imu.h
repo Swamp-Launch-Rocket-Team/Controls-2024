@@ -20,8 +20,8 @@
 #define NOTIF_PIPE 0x05
 #define MEAS_PIPE 0x06
 
-#define IMU_SPI_DEVICE "/dev/spidev0.0"
-#define IMU_SPI_MODE SPI_MODE_3
+// #define IMU_SPI_DEVICE "/dev/spidev0.0"
+// #define IMU_SPI_MODE SPI_MODE_3
 
 using namespace std;
 

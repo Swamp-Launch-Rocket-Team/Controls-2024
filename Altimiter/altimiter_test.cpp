@@ -1,11 +1,13 @@
 #include <iostream>
 
-#include "spi.h"
 #include "altimiter.h"
-#include <wiringPi.h>
+
+#include "bitbang.h"
 
 int main(void)
 {    
+    spi_init_bitbang();
+    
     alt_init();
 
     uint16_t cal[6] = {0};

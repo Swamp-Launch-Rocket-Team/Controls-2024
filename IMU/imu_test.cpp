@@ -10,7 +10,7 @@ int main()
     // Set up variables for the I2C device address, file descriptor, and data buffer
     // unsigned char data[40];
 
-    // imu_data_t imu_data;
+    imu_data_t imu_data;
 
     imu_init();
 
@@ -25,20 +25,19 @@ int main()
     // go_to_measurement();
     // sleep(3);
 
-    // auto start = chrono::high_resolution_clock::now();
-    // auto cur = chrono::high_resolution_clock::now();
+    auto start = chrono::high_resolution_clock::now();
+    auto cur = chrono::high_resolution_clock::now();
+    while (true)
+    {
+        start = chrono::high_resolution_clock::now();
 
-    // while (true)
-    // {
-        // start = chrono::high_resolution_clock::now();
+        imu_data = imu_read_data();
 
-        // imu_data = imu_read_data();
+        print_all(&imu_data);
 
-        // print_all(&imu_data);
-
-        // cur = chrono::high_resolution_clock::now();
+        cur = chrono::high_resolution_clock::now();
         // usleep(10000 - chrono::duration_cast<chrono::microseconds>(cur - start).count());
-    // }
+    }
 
     return 0;
 }
@@ -65,10 +64,14 @@ void print_data(const vector<unsigned char> &data)
 
 void print_all(imu_data_t *imu_data)
 {
-    printf("Heading: %.4f\t%.4f\t%.4f\tGPS: %.4f\t%.4f\tAlt: %.4f\t\n",
+    // printf("Heading: %.4f\t%.4f\t%.4f\tGPS: %.4f\t%.4f\tAlt: %.4f\t\n",
+    //     imu_data->heading.x,imu_data->heading.y,imu_data->heading.z,
+    //     imu_data->gps.lat, imu_data->gps.lon,
+    //     imu_data->alt);
+
+    printf("Heading: %.4f\t%.4f\t%.4f\tACCEL: %.4f\t%.4f\t%.4f\t\n",
         imu_data->heading.x,imu_data->heading.y,imu_data->heading.z,
-        imu_data->gps.lat, imu_data->gps.lon,
-        imu_data->alt);
+        imu_data->accel.x, imu_data->accel.y, imu_data->accel.z);
 
     usleep(10000);
 

@@ -8,7 +8,9 @@
 #include <thread>
 #include <cmath>
 
-#include "spi.h"
+// #include "spi.h"
+
+#include "bitbang.h"
 
 #define CMD_RESET 0x1E // Reset
 
@@ -42,14 +44,17 @@
 #define CALIBRATION_C5 33371
 #define CALIBRATION_C6 27363
 
-#define ALT_SPI_DEVICE "/dev/spidev0.1"
-#define ALT_SPI_MODE SPI_MODE_0
+// #define ALT_SPI_DEVICE "/dev/spidev0.1"
+// #define ALT_SPI_MODE SPI_MODE_0
 
 void alt_init()
-{
+{   
     // Reset
     char tx = CMD_RESET;
-    spi_write(ALT_SPI_DEVICE, ALT_SPI_MODE, &tx, 1);
+    char rx = 0;
+    // spi_write(ALT_SPI_DEVICE, ALT_SPI_MODE, &tx, 1);
+
+    spi_transfer_bitbang(&tx, &rx, 1, 0, 1);
     
     // Chip has 2.8ms reload timing
     std::this_thread::sleep_for(std::chrono::milliseconds(3));
@@ -68,7 +73,8 @@ void alt_read_calibration(uint16_t *calibration)
 
     for (uint8_t i = 0; i < 6; i++)
     {
-        spi_transact(ALT_SPI_DEVICE, ALT_SPI_MODE, commands + (3*i), buff + (3*i), 3);
+        // spi_transact(ALT_SPI_DEVICE, ALT_SPI_MODE, commands + (3*i), buff + (3*i), 3);
+        spi_transfer_bitbang(commands + (3*i), buff + (3*i), 3, 0, 1);
     }
 
     calibration[0] = buff[1] << 8 | buff[2];
@@ -82,7 +88,9 @@ void alt_read_calibration(uint16_t *calibration)
 uint32_t sample(char conv)
 {    
     char tx = conv;
-    spi_write(ALT_SPI_DEVICE, ALT_SPI_MODE, &tx, 1);
+    char rx = 0;
+    // spi_write(ALT_SPI_DEVICE, ALT_SPI_MODE, &tx, 1);
+    spi_transfer_bitbang(&tx, &rx, 1, 0, 1);
 
     // Max conversion is 9.04ms for 4096 conversion
     std::this_thread::sleep_for(std::chrono::milliseconds(10));
@@ -90,7 +98,9 @@ uint32_t sample(char conv)
     char command[4] = {CMD_ADC_READ, 0x00, 0x00, 0x00};
     char buff[4] = {0};
 
-    spi_transact(ALT_SPI_DEVICE, ALT_SPI_MODE, command, buff, 4);
+    // spi_transact(ALT_SPI_DEVICE, ALT_SPI_MODE, command, buff, 4);
+    spi_transfer_bitbang(command, buff, 4, 0, 1);
+
 
     return buff[1] << 16 | buff[2] << 8 | buff[3];
 }
