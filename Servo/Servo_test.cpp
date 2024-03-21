@@ -52,8 +52,10 @@ int main()
     //int deg_105 = round(m*105 + b);
     //pwmWrite(Pwm_pin, deg_105);
 
+    int ext = m*0 + b;
     //Aibrake flap extension test from 0 degrees to a specified value in the int ext definition line.
-    pwmWrite(Pwm_pin, b);
+    pwmWrite(Pwm_pin, ext);
+    delay(500);
     // delay(1000);
     // int ext = round(m*90 + b);
 
@@ -77,6 +79,14 @@ int main()
     //     pwmWrite(Pwm_pin, pwm_command);
     //     cout << pwm_command << endl;        
     // }
+
+    // for(int i = 105; i > 5; i = i - 5)
+    // {
+    //     pwm_command = round(m*i + b);
+    //     delay(250);
+    //     pwmWrite(Pwm_pin, pwm_command);
+    //     cout << pwm_command << endl;        
+    // }    
 
     cout << "Testing done" << endl;     //Prints to the command that testing has concluded
 
