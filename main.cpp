@@ -26,12 +26,12 @@
 #define m_to_ft 3.28084
 #define R 287.058
 #define g 9.81
-#define press_expected 101500.0        //Expected pressure at launch site in Pa, DEPENDENT 
+#define press_expected 99265.0        //Expected pressure at launch site in Pa, DEPENDENT 
 #define temp_expected 300.0            //Expected temperature at launch site in kelvin, DEPENDENT
 #define press_min 90000.0              //Min for outlier of, DEPENDENT
 #define press_max 105000.0             //Max outlier for press, DEPENDENT
-#define temp_min 288.0                 //Min temp in KELVIN, DEPENDENT
-#define temp_max 320.0                 //Max temp in KELVIN, DEPENDENT
+#define temp_min 293.15                 //Min temp in KELVIN, DEPENDENT
+#define temp_max 303.15                 //Max temp in KELVIN, DEPENDENT
 #define lapse 0.0065                  //Lapse rate for pressure to altitude calc
 
 //
@@ -142,8 +142,13 @@ int main()
     int launch_count = 0;
 
 
+    //File for test logging
+    ofstream testing;
+    testing.open("Main Testing");
+
+
     //While loop that runs until the APOGEE_DETECTED state is reach, aka this is run from being powered on the pad to apogee
-    while (true && state.status != state_t::APOGEE_DETECTED)
+    while (true && state.status != state_t::LAUNCH_DETECTED)
     {
         cur = chrono::high_resolution_clock::now();
 
@@ -160,8 +165,8 @@ int main()
         rotation(state);
         // Altimiter read
         altimiter_t alt_data = get_temp_and_pressure(); // THIS DELAYS FOR 20ms, talk to Chris to change
-        state.altimeter.pressure = alt_data.pressure;
-        state.altimeter.temp = alt_data.temp;
+        state.altimeter.pressure = alt_data.pressure*100.0;;
+        state.altimeter.temp = alt_data.temp + 273.15;
         pressure_filter(state, cal, cur);
         state.altimeter.z = pressure_to_altitude(state, T0, P0);
 
@@ -207,11 +212,17 @@ int main()
 
         //Delay so that IMU and altimeter do not read too fast
         while (chrono::duration_cast<chrono::microseconds>(chrono::high_resolution_clock::now() - cur).count() < 9500);
+
+        //Write to testing file
+        testing << chrono::duration<double>(chrono::high_resolution_clock::now() - start).count() << "," << state.status << "," << state.altimeter.pressure4 << "," << state.altimeter.pressure3 << "," << state.altimeter.pressure2 << "," << state.altimeter.pressure1 << "," << state.altimeter.pressure << "," << state.altimeter.filt_pressure4 << "," << state.altimeter.filt_pressure3 << "," << state.altimeter.filt_pressure2 << "," << state.altimeter.filt_pressure1 << "," << state.altimeter.filt_pressure << "," << state.altimeter.temp << "," << P0 << "," << T0 << "," << state.altimeter.z << "," <<state.imu_data.heading.x << "," << state.imu_data.heading.y << "," << state.imu_data.heading.z << "," << state.imu_data.accel.x << "," << state.imu_data.accel.y << "," << state.imu_data.accel.z << "," << state.velo.Mach << "," << state.velo.xdot_4 << "," << state.velo.xdot_3 << "," << state.velo.xdot_2 << "," << state.velo.xdot_1 << "," << state.velo.xdot << "," << state.velo.zdot_4 << "," << state.velo.zdot_3 << "," << state.velo.zdot_2 << "," << state.velo.zdot_1 << "," << state.velo.zdot << endl;
+        cout << state.status << endl;       //For debugging
     }
 
     //Write the data, command the servo to return to the home position, put the Pi to sleep
     APOGEE_DETECTED_status(state, data_log, Pwm_pin, Pwm_home_value);
-
+    
+    cout << "Testing done" << endl;     //For debugging
+    
     return 0;
 }
 
@@ -223,14 +234,14 @@ void PAD_status(int Pwm_pin, float Pwm_home_value, float Pwm_max_value, state_t 
     for(int i = Pwm_home_value; i < Pwm_max_value; i = i + 10)
     {
         pwmWrite(Pwm_pin, i);
-        delay(500);
+        delay(100);
         end_val = i;
     }
     delay(2000);
     for(int i = end_val; i > Pwm_home_value; i = i - 10)
     {
         pwmWrite(Pwm_pin, i);
-        delay(500);
+        delay(100);
     }
     delay(500);
     pwmWrite(Pwm_pin, Pwm_home_value);
@@ -357,7 +368,7 @@ bool detect_launch(state_t state, int &launch_count)
     float detection_acceleration = 5.0 * 9.81;
     // fix bs way too high numbers by setting to 0
 
-    if (launch_count > 10) {
+    if (launch_count > 5) {
         return true;
     }
 
@@ -697,7 +708,12 @@ void pressure_filter(state_t &state, chrono::_V2::system_clock::time_point cal, 
     //If we are out of the calibration part, filter the pressures using the butterworth filter
     if (state.status != state_t::PAD && chrono::duration<double>(cur - cal).count() > 120.0)
     {
-        state.altimeter.filt_pressure = state.altimeter.filt_pressure1*1.143 - state.altimeter.filt_pressure2*0.4128 + state.altimeter.pressure*0.675 + state.altimeter.pressure1*0.1349 + state.altimeter.pressure2*0.0675;
+        if (state.altimeter.pressure > press_max || state.altimeter.pressure < press_min)
+        {
+            state.altimeter.pressure = (state.altimeter.pressure1 - state.altimeter.pressure2) + state.altimeter.pressure1; 
+        }   
+
+        state.altimeter.filt_pressure = state.altimeter.filt_pressure1*1.561 - state.altimeter.filt_pressure2*0.6414 + state.altimeter.pressure*0.0201 + state.altimeter.pressure1*0.0402 + state.altimeter.pressure2*0.0201;
         state.altimeter.filt_pressure4 = state.altimeter.filt_pressure3;
         state.altimeter.filt_pressure3 = state.altimeter.filt_pressure2;
         state.altimeter.filt_pressure2 = state.altimeter.filt_pressure1;
@@ -707,6 +723,15 @@ void pressure_filter(state_t &state, chrono::_V2::system_clock::time_point cal, 
         state.altimeter.pressure3 = state.altimeter.pressure2;
         state.altimeter.pressure2 = state.altimeter.pressure1;
         state.altimeter.pressure1 = state.altimeter.pressure;
+
+        if (state.altimeter.temp > temp_max || state.altimeter.temp < temp_min)
+        {
+            state.altimeter.temp = abs((state.altimeter.temp2 - state.altimeter.temp1)) + state.altimeter.temp1;
+        }
+
+        state.altimeter.temp2 = state.altimeter.temp1;
+        state.altimeter.temp1 = state.altimeter.temp;
+
     }
 }
 

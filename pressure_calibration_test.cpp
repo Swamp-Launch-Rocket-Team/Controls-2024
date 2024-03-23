@@ -7,6 +7,7 @@
 #include "State/state.h"
 #include <vector>
 #include <fstream>
+#include <numeric>
 
 #define press_min 950.0
 #define press_max 1200.0

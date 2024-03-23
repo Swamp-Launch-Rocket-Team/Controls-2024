@@ -52,10 +52,20 @@ int main()
     //int deg_105 = round(m*105 + b);
     //pwmWrite(Pwm_pin, deg_105);
 
-    int ext = m*0 + b;
-    //Aibrake flap extension test from 0 degrees to a specified value in the int ext definition line.
+    float ext = round(m*0 + b);
     pwmWrite(Pwm_pin, ext);
     delay(500);
+
+    // Rounding stuff
+    // float notrounded = m*103 + b;
+    // cout << "Not rounded:\t" << notrounded << endl;
+    // const float Pwm_max_value = round(m*103 + b);    //Max value, 105 degrees
+    // cout << "Rounded:\t" << Pwm_max_value << endl;
+
+
+    //Aibrake flap extension test from 0 degrees to a specified value in the int ext definition line.
+    // pwmWrite(Pwm_pin, ext);
+    // delay(500);
     // delay(1000);
     // int ext = round(m*90 + b);
 

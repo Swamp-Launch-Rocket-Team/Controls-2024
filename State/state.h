@@ -23,6 +23,8 @@ struct state_t
         float filt_pressure1 = 0.0;
         float filt_pressure = 0.0;
 
+        float temp2 = 0.0;
+        float temp1 = 0.0;
         float temp = 0.0;
 
         float z_prev = 0.0;
