@@ -49,9 +49,9 @@ unordered_map<int, float> pitchanglevector(float theta_0);       //USE THIS IN M
 // pair<vector<int>, vector<float>> pitchanglevector(float theta_0); 
 void rotation(state_t &state);
 void xdot_calc(state_t &state);
-void zdot_calc(state_t &state);     
+void zdot_calc(state_t &state, chrono::_V2::system_clock::time_point cal, chrono::_V2::system_clock::time_point cur, float loop_time);     
 void Mach_calc(state_t &state);
-float pressure_to_altitude(state_t &state, float T0, float P0);
+float pressure_to_altitude(state_t &state, float T0, float P0, chrono::_V2::system_clock::time_point cal, chrono::_V2::system_clock::time_point cur);
 void pressure_filter(state_t &state, chrono::_V2::system_clock::time_point cal, chrono::_V2::system_clock::time_point cur);
 //
 
@@ -108,6 +108,7 @@ int main()
     auto launch_time = chrono::high_resolution_clock::now();        //This needs to get reset once launch is detected
     auto motor_burn_time = chrono::high_resolution_clock::now();    //This gets reset once motor burn is detected
     auto apogee_time = chrono::high_resolution_clock::now();    //This gets reset once apogee has been detected
+    auto t_end = chrono::high_resolution_clock::now();          //This gets reset at the end of each loop in the switch statement
 
 
     //Set the status to PAD
@@ -121,6 +122,7 @@ int main()
     float x = 0.0;
     float U_airbrake = 0.0;
     int ii = 0;
+    float loop_time = 0.2;
 
 
     //Initialize the dynamics model object and controller object
@@ -143,12 +145,12 @@ int main()
 
 
     //File for test logging
-    ofstream testing;
-    testing.open("Main Testing");
+    ofstream testing;       //REMOVE PRIOR TO FLIGHT
+    testing.open("Main Testing");       //REMOVE PRIOR TO FLIGHT
 
 
     //While loop that runs until the APOGEE_DETECTED state is reach, aka this is run from being powered on the pad to apogee
-    while (true && state.status != state_t::LAUNCH_DETECTED)
+    while (true && state.status != state_t::LAUNCH_DETECTED && chrono::duration<double>(chrono::high_resolution_clock::now() - start).count() < 180.0)
     {
         cur = chrono::high_resolution_clock::now();
 
@@ -162,18 +164,18 @@ int main()
             cal_count = 1;
         }
         state.imu_data = imu_read_data();       //Read from imu and write to the state imu data struct
-        rotation(state);
+        rotation(state);            //TEST
         // Altimiter read
         altimiter_t alt_data = get_temp_and_pressure(); // THIS DELAYS FOR 20ms, talk to Chris to change
         state.altimeter.pressure = alt_data.pressure*100.0;;
         state.altimeter.temp = alt_data.temp + 273.15;
         pressure_filter(state, cal, cur);
-        state.altimeter.z = pressure_to_altitude(state, T0, P0);
+        state.altimeter.z = pressure_to_altitude(state, T0, P0, cal, cur);
 
         //Find the current xdot, zdot, and Mach number
-        xdot_calc(state);       //in m/s i think, NOT DONE
-        zdot_calc(state);       //in m/s i think, NOT DONE
-        Mach_calc(state);       //dimensionless
+        xdot_calc(state);       //in m/s i think, NOT DONE      TEST
+        zdot_calc(state, cal, cur, loop_time);       //in m/s i think, NOT DONE
+        Mach_calc(state);       //dimensionless     TEST
 
         //Initialize the dynamics model object if switched to Actuation state
         if (ii == 1)
@@ -195,13 +197,13 @@ int main()
                 ARMED_status(state, start, launch_time, cal, cur, press_cal, temp_cal, T0, P0, launch_count);
                 break;
 
-            case state_t::LAUNCH_DETECTED:
+            case state_t::LAUNCH_DETECTED:      //TEST SWITCH TO ACTUATION STATE
                 //LAUNCH_DETECTED_status() this function will call the LAUNCH_DETECTED_status void function that will call the detect_motor_burn_end function or maybe just a timer
                 LAUNCH_DETECTED_status(state, motor_burn_time, theta_0, launch_time, cur, theta_map, ii); //Needs more inputs i think
                 pwmWrite(Pwm_pin, Pwm_home_value);        //Ensures the servo is at the home position
                 break;
 
-            case state_t::ACTUATION:
+            case state_t::ACTUATION:        //TEST ACTUATION AND SWITCH TO APOGEE
                 //ACTUATION_status() this function will call the ACTUATION_status void function that will call the dynamics model and controller from Dynamics_Model_Controller folder, and a detect_apogee function
                 ACTUATION_status(Pwm_pin, Pwm_home_value, Pwm_max_value, state, x, U_airbrake, dynamics, airbrake, motor_burn_time, apogee_time, cur, ii);
                 break;
@@ -213,16 +215,20 @@ int main()
         //Delay so that IMU and altimeter do not read too fast
         while (chrono::duration_cast<chrono::microseconds>(chrono::high_resolution_clock::now() - cur).count() < 9500);
 
-        //Write to testing file
-        testing << chrono::duration<double>(chrono::high_resolution_clock::now() - start).count() << "," << state.status << "," << state.altimeter.pressure4 << "," << state.altimeter.pressure3 << "," << state.altimeter.pressure2 << "," << state.altimeter.pressure1 << "," << state.altimeter.pressure << "," << state.altimeter.filt_pressure4 << "," << state.altimeter.filt_pressure3 << "," << state.altimeter.filt_pressure2 << "," << state.altimeter.filt_pressure1 << "," << state.altimeter.filt_pressure << "," << state.altimeter.temp << "," << P0 << "," << T0 << "," << state.altimeter.z << "," <<state.imu_data.heading.x << "," << state.imu_data.heading.y << "," << state.imu_data.heading.z << "," << state.imu_data.accel.x << "," << state.imu_data.accel.y << "," << state.imu_data.accel.z << "," << state.velo.Mach << "," << state.velo.xdot_4 << "," << state.velo.xdot_3 << "," << state.velo.xdot_2 << "," << state.velo.xdot_1 << "," << state.velo.xdot << "," << state.velo.zdot_4 << "," << state.velo.zdot_3 << "," << state.velo.zdot_2 << "," << state.velo.zdot_1 << "," << state.velo.zdot << endl;
-        cout << state.status << endl;       //For debugging
+        loop_time = chrono::duration<double>(chrono::high_resolution_clock::now() - cur).count();
+
+
+        //Write to testing file, REMOVE PRIOR TO FLIGHT
+        testing << chrono::duration<double>(chrono::high_resolution_clock::now() - start).count() << "," << state.status << "," << state.altimeter.pressure4 << "," << state.altimeter.pressure3 << "," << state.altimeter.pressure2 << "," << state.altimeter.pressure1 << "," << state.altimeter.pressure << "," << state.altimeter.filt_pressure4 << "," << state.altimeter.filt_pressure3 << "," << state.altimeter.filt_pressure2 << "," << state.altimeter.filt_pressure1 << "," << state.altimeter.filt_pressure << "," << state.altimeter.temp << "," << P0 << "," << T0 << "," << state.altimeter.z << "," <<state.imu_data.heading.x << "," << state.imu_data.heading.y << "," << state.imu_data.heading.z << "," << state.imu_data.accel.x << "," << state.imu_data.accel.y << "," << state.imu_data.accel.z << "," << state.velo.Mach << "," << state.velo.xdot_4 << "," << state.velo.xdot_3 << "," << state.velo.xdot_2 << "," << state.velo.xdot_1 << "," << state.velo.xdot << "," << state.velo.zdot_4 << "," << state.velo.zdot_3 << "," << state.velo.zdot_2 << "," << state.velo.zdot_1 << "," << state.velo.zdot << "," << loop_time << endl;
+        cout << state.status << endl;       //For debugging, REMOVE PRIOR TO FLIGHT
+
     }
 
     //Write the data, command the servo to return to the home position, put the Pi to sleep
     APOGEE_DETECTED_status(state, data_log, Pwm_pin, Pwm_home_value);
     
     cout << "Testing done" << endl;     //For debugging
-    
+    testing.close();
     return 0;
 }
 
@@ -295,9 +301,9 @@ void LAUNCH_DETECTED_status(state_t &state, chrono::_V2::system_clock::time_poin
     if (state.status == state_t::ACTUATION)     //This is going to set the initial theta_0 and form theta_region and theta_vector
     {
         theta_0 = sqrt(pow(state.imu_data.heading.x, 2) + pow(state.imu_data.heading.z, 2));      //CHECK THIS!!
-        if (theta_0 > 35.0)       //This is just in case the angle reading is not accurate, just approximate it as 20 deg?
+        if (theta_0 > 35.0)       //This is just in case the angle reading is not accurate, just approximate it as 15 deg?
         {
-            theta_0 = 20.0;
+            theta_0 = 15.0;
         }
         ii = 1;
         theta_map = pitchanglevector(theta_0);
@@ -321,8 +327,8 @@ void ACTUATION_status(int Pwm_pin, float Pwm_home_value, float Pwm_max_value, st
     float t = 0.0;
     float dt = 0.1;
     int num_integrated = 0;
-    float x_dot = state.velo.xdot;        //Might not be able to call this, might have to have a function that calcs this
-    float z_dot = state.velo.zdot;        //Might not be able to call this, might have to have a function that calcs this
+    float x_dot = state.velo.xdot;        
+    float z_dot = state.velo.zdot;        
     float z = state.altimeter.z;
 
     if (chrono::duration<double>(cur - motor_burn_time).count() >= t_max)      //if the time since motor burn end is greater than 24 seconds, we should have hit apogee
@@ -365,7 +371,7 @@ void APOGEE_DETECTED_status(state_t &state, list<pair<long, state_t>> &data_log,
 //Add all of the other functions here: launch detect, maybe servo arming, detect motor burn end, detect apogee, write data from Jasons main, 
 bool detect_launch(state_t state, int &launch_count)
 {
-    float detection_acceleration = 5.0 * 9.81;
+    float detection_acceleration = 0.2 * 9.81;      //CHANGE TO 5.0*9.81
     // fix bs way too high numbers by setting to 0
 
     if (launch_count > 5) {
@@ -607,15 +613,17 @@ unordered_map<int, float> pitchanglevector(float theta_0)
 
 void rotation(state_t &state)
 {
-    //Rotation matrix for accel data from rocket frame to ground frame
+    //Rotation matrix for accel data from rocket frame to ground frame, TEST THIS
 }
 
-float pressure_to_altitude(state_t &state, float T0, float P0)
+float pressure_to_altitude(state_t &state, float T0, float P0, chrono::_V2::system_clock::time_point cal, chrono::_V2::system_clock::time_point cur)
 {
-    if (state.status != state_t::PAD || state.status != state_t::ARMED)
+    // if (state.status != state_t::PAD || state.status != state_t::ARMED)  
+    if (state.status != state_t::PAD && chrono::duration<double>(cur - cal).count() > 120.0)       //CHANGE THIS BACK TO THE LINE ABOVE WHEN DONE WITH TESTING, maybe????
     {
-    float pressure = state.altimeter.pressure;      //In Pa
-    float altitude = (T0/lapse)*(1-pow(pressure/P0,lapse*(R/g)));       //In meters
+    float pressure = state.altimeter.filt_pressure;      //In Pa
+    float altitude = (T0/lapse)*(1-pow(pressure/P0,lapse*(R/g)));       //In meters, CHECK THIS METHOD
+    state.altimeter.z_prev = state.altimeter.z;
     return altitude;
     }
     else
@@ -648,14 +656,13 @@ void xdot_calc(state_t &state)
 
 }
 
-void zdot_calc(state_t &state)     //Also needs altitude for the derivative as input!!!
+void zdot_calc(state_t &state, chrono::_V2::system_clock::time_point cal, chrono::_V2::system_clock::time_point cur, float loop_time)     //Also needs altitude for the derivative as input!!!
 {
     //If statement that checks which state we are in
     //For pad and armed states -> set all zdots to 0
-    //For launch detected state -> use the butter filter method
-    //For Actuation state -> use the Kalman method if possible
+    //For launch detected state -> use derivative and MAYBE filter it
 
-    if (state.status == state_t::PAD || state.status == state_t::ARMED)
+    if (state.status == state_t::PAD)
     {
         //set all zdot to 0
         state.velo.zdot_1 = 0.0;
@@ -664,9 +671,15 @@ void zdot_calc(state_t &state)     //Also needs altitude for the derivative as i
         state.velo.zdot_4 = 0.0;
         state.velo.zdot = 0.0;
     }
-    else if (state.status == state_t::LAUNCH_DETECTED || state.status == state_t::ACTUATION)
+    else if (chrono::duration<double>(cur - cal).count() > 120.0 || state.status == state_t::LAUNCH_DETECTED || state.status == state_t::ACTUATION)
     {
         //Take the derivative of the altitude using state.altimeter.z and state.altimeter.z_prev
+        state.velo.zdot = (state.altimeter.z - state.altimeter.z_prev)/loop_time;       //in [m/s]
+
+        state.velo.zdot_4 = state.velo.zdot_3;
+        state.velo.zdot_3 = state.velo.zdot_2;
+        state.velo.zdot_2 = state.velo.zdot_1;
+        state.velo.zdot_1 = state.velo.zdot;
     }
     
 }
