@@ -93,7 +93,9 @@ void log_state(state_t state, std::chrono::time_point<std::chrono::high_resoluti
     state.imu_data.heading.y << "," << state.imu_data.heading.z << "," << state.imu_data.accel.x << "," << state.imu_data.accel.y << "," <<
     state.imu_data.accel.z << "," << state.velo.Mach << "," << state.velo.xdot_4 << "," << state.velo.xdot_3 << "," << state.velo.xdot_2 << "," <<
     state.velo.xdot_1 << "," << state.velo.xdot << "," << state.velo.zdot_4 << "," << state.velo.zdot_3 << "," << state.velo.zdot_2 << "," <<
-    state.velo.zdot_1 << "," << state.velo.zdot << "," << loop_time;
+    state.velo.zdot_1 << "," << state.velo.zdot << "," <<
+    state.velo.integral_veloz << "," << state.velo.prev_integral_veloz << "," << state.theta_window1[0] <<
+    "," << state.theta_window2[0] << "," << state.dt_window1[0] << "," << state.dt_window2[0] << "," << loop_time;
 
     std::string formatted = stream.str();
 

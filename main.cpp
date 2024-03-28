@@ -50,7 +50,7 @@ unordered_map<int, float> pitchanglevector(float theta_0);       //USE THIS IN M
 // pair<vector<int>, vector<float>> pitchanglevector(float theta_0); 
 void rotation(state_t &state);
 void xdot_calc(state_t &state);
-void zdot_calc(state_t &state, chrono::_V2::system_clock::time_point cal, chrono::_V2::system_clock::time_point cur, float loop_time);     
+void zdot_calc(state_t &state, chrono::_V2::system_clock::time_point cal, chrono::_V2::system_clock::time_point cur, float loop_time, bool &velo_window, int &velo_counter, int launch_count, int &end_velostuff);     
 void Mach_calc(state_t &state);
 float pressure_to_altitude(state_t &state, float T0, float P0, chrono::_V2::system_clock::time_point cal, chrono::_V2::system_clock::time_point cur);
 void pressure_filter(state_t &state, chrono::_V2::system_clock::time_point cal, chrono::_V2::system_clock::time_point cur);
@@ -148,13 +148,19 @@ int main()
     int launch_count = 0;
 
 
+    bool velo_window = 1;        //int for determining velo window while in ARMED state
+    int velo_counter = 0;       //int for checking the velo window counter while in ARMED state
+    int end_velostuff = 0;      //int for determining if we are in that weird period during ARMED where we havent detected launch, but launch has occured
+
+
+
     //File for test logging
     // ofstream testing;       //REMOVE PRIOR TO FLIGHT
     // testing.open("Main Testing");       //REMOVE PRIOR TO FLIGHT
 
 
     //While loop that runs until the APOGEE_DETECTED state is reach, aka this is run from being powered on the pad to apogee
-    while (true && state.status != state_t::LAUNCH_DETECTED && chrono::duration<double>(chrono::high_resolution_clock::now() - start).count() < 180.0)
+    while (true && state.status != state_t::ACTUATION && chrono::duration<double>(chrono::high_resolution_clock::now() - start).count() < 180.0)
     {
         cur = chrono::high_resolution_clock::now();
 
@@ -178,7 +184,7 @@ int main()
 
         //Find the current xdot, zdot, and Mach number
         xdot_calc(state);       //in m/s i think, NOT DONE      TEST
-        zdot_calc(state, cal, cur, loop_time);       //in m/s i think, NOT DONE
+        zdot_calc(state, cal, cur, loop_time, velo_window, velo_counter, launch_count, end_velostuff);       //in m/s i think, NOT DONE
         Mach_calc(state);       //dimensionless     TEST
 
         //Initialize the dynamics model object if switched to Actuation state
@@ -226,6 +232,7 @@ int main()
         log_state(state, start, P0, T0, loop_time);
         // testing << chrono::duration<double>(chrono::high_resolution_clock::now() - start).count() << "," << state.status << "," << state.altimeter.pressure4 << "," << state.altimeter.pressure3 << "," << state.altimeter.pressure2 << "," << state.altimeter.pressure1 << "," << state.altimeter.pressure << "," << state.altimeter.filt_pressure4 << "," << state.altimeter.filt_pressure3 << "," << state.altimeter.filt_pressure2 << "," << state.altimeter.filt_pressure1 << "," << state.altimeter.filt_pressure << "," << state.altimeter.temp << "," << P0 << "," << T0 << "," << state.altimeter.z << "," <<state.imu_data.heading.x << "," << state.imu_data.heading.y << "," << state.imu_data.heading.z << "," << state.imu_data.accel.x << "," << state.imu_data.accel.y << "," << state.imu_data.accel.z << "," << state.velo.Mach << "," << state.velo.xdot_4 << "," << state.velo.xdot_3 << "," << state.velo.xdot_2 << "," << state.velo.xdot_1 << "," << state.velo.xdot << "," << state.velo.zdot_4 << "," << state.velo.zdot_3 << "," << state.velo.zdot_2 << "," << state.velo.zdot_1 << "," << state.velo.zdot << "," << loop_time << endl;
         cout << state.status << endl;       //For debugging, REMOVE PRIOR TO FLIGHT
+        // printf("%d", state.status);     //For debugging, REMOVE PRIOR TO FLIGHT
 
     }
 
@@ -236,7 +243,9 @@ int main()
     log_stop();
     logger_thread.join();
     
-    cout << "Testing done" << endl;     //For debugging
+    cout << "Testing done" << endl;     //For debugging, REMOVE PRIOR TO FLIGHT
+    // printf("Testing done");                 //For debugging, REMOVE PRIOR TO FLIGHT
+
     // testing.close();
     return 0;
 }
@@ -381,7 +390,7 @@ bool detect_launch(state_t state, int &launch_count)
     float detection_acceleration = 0.2 * 9.81;      //CHANGE TO 5.0*9.81
     // fix bs way too high numbers by setting to 0
 
-    if (launch_count > 5) {
+    if (launch_count > 3) {
         return true;
     }
 
@@ -663,11 +672,79 @@ void xdot_calc(state_t &state)
 
 }
 
-void zdot_calc(state_t &state, chrono::_V2::system_clock::time_point cal, chrono::_V2::system_clock::time_point cur, float loop_time)     //Also needs altitude for the derivative as input!!!
+void zdot_calc(state_t &state, chrono::_V2::system_clock::time_point cal, chrono::_V2::system_clock::time_point cur, float loop_time, bool &velo_window, int &velo_counter, int launch_count, int &end_velostuff)     //Also needs altitude for the derivative as input!!!
 {
     //If statement that checks which state we are in
     //For pad and armed states -> set all zdots to 0
     //For launch detected state -> use derivative and MAYBE filter it
+
+    if (chrono::duration<double>(cur - cal).count() > 120.0 && end_velostuff == 0)
+    {
+        if (velo_counter == 6)
+        {
+            if (detect_launch(state, launch_count))
+            {
+                end_velostuff = 1;
+                //Do actual math for velocity and set that to the state.velo.integral_veloz AND state.velo.prev_integral_veloz
+                if (velo_window == 0)
+                {
+                    for (int i = 0; i < 6; i++)
+                    {
+                        state.velo.integral_veloz = (state.dt_window1[i]/2)*(state.accel_window1[i + 1]*cos(state.theta_window1[i + 1]) + state.accel_window1[i]*cos(state.theta_window1[i])) + state.velo.prev_integral_veloz;
+                        state.velo.prev_integral_veloz = state.velo.integral_veloz;
+                    }
+
+                    for (int i = 0; i < 6; i++)
+                    {
+                        state.velo.integral_veloz = (state.dt_window2[i]/2)*(state.accel_window2[i + 1]*cos(state.theta_window2[i + 1]) + state.accel_window2[i]*cos(state.theta_window2[i])) + state.velo.prev_integral_veloz;
+                        state.velo.prev_integral_veloz = state.velo.integral_veloz;
+                    }
+
+                }
+                else
+                {
+                    for (int i = 0; i < 6; i++)
+                    {
+                        state.velo.integral_veloz = (state.dt_window2[i]/2)*(state.accel_window2[i + 1]*cos(state.theta_window2[i + 1]) + state.accel_window2[i]*cos(state.theta_window2[i])) + state.velo.prev_integral_veloz;
+                        state.velo.prev_integral_veloz = state.velo.integral_veloz;
+                    }
+
+                    for (int i = 0; i < 6; i++)
+                    {
+                        state.velo.integral_veloz = (state.dt_window1[i]/2)*(state.accel_window1[i + 1]*cos(state.theta_window1[i + 1]) + state.accel_window1[i]*cos(state.theta_window1[i])) + state.velo.prev_integral_veloz;
+                        state.velo.prev_integral_veloz = state.velo.integral_veloz;
+                    }
+                }
+            }
+            else
+            {
+                velo_window = !velo_window;     //switch the accel window
+            }
+        }
+
+        if (velo_window)
+        {
+            state.accel_window1[velo_counter] = state.imu_data.accel.z;
+            state.dt_window1[velo_counter] = loop_time;
+            state.theta_window1[velo_counter] = sqrt(pow(state.imu_data.heading.x,2) + pow(state.imu_data.heading.y,2));
+        }
+        else
+        {
+            state.accel_window2[velo_counter] = state.imu_data.accel.z;
+            state.dt_window2[velo_counter] = loop_time;
+            state.theta_window2[velo_counter] = sqrt(pow(state.imu_data.heading.x,2) + pow(state.imu_data.heading.y,2));
+        }
+        
+        if (velo_counter == 6)
+        {
+            velo_counter == 0;
+        }
+        else
+        {
+            velo_counter += 1;
+        }
+
+    }
 
     if (state.status == state_t::PAD)
     {
