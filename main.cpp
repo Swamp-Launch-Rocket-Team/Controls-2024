@@ -22,6 +22,7 @@
 #include "IMU/imu.h"
 #include "bitbang/bitbang.h"
 #include "busynano/busynano.h"
+#include "Logger/logger.h"
 
 #define m_to_ft 3.28084
 #define R 287.058
@@ -59,6 +60,9 @@ using namespace std;
 
 int main()
 {
+    // Initialize the logging thread
+    std::thread logger_thread(log_thread);
+
     //Initialize SPI bitbang
     spi_init_bitbang();
     
@@ -145,8 +149,8 @@ int main()
 
 
     //File for test logging
-    ofstream testing;       //REMOVE PRIOR TO FLIGHT
-    testing.open("Main Testing");       //REMOVE PRIOR TO FLIGHT
+    // ofstream testing;       //REMOVE PRIOR TO FLIGHT
+    // testing.open("Main Testing");       //REMOVE PRIOR TO FLIGHT
 
 
     //While loop that runs until the APOGEE_DETECTED state is reach, aka this is run from being powered on the pad to apogee
@@ -219,16 +223,21 @@ int main()
 
 
         //Write to testing file, REMOVE PRIOR TO FLIGHT
-        testing << chrono::duration<double>(chrono::high_resolution_clock::now() - start).count() << "," << state.status << "," << state.altimeter.pressure4 << "," << state.altimeter.pressure3 << "," << state.altimeter.pressure2 << "," << state.altimeter.pressure1 << "," << state.altimeter.pressure << "," << state.altimeter.filt_pressure4 << "," << state.altimeter.filt_pressure3 << "," << state.altimeter.filt_pressure2 << "," << state.altimeter.filt_pressure1 << "," << state.altimeter.filt_pressure << "," << state.altimeter.temp << "," << P0 << "," << T0 << "," << state.altimeter.z << "," <<state.imu_data.heading.x << "," << state.imu_data.heading.y << "," << state.imu_data.heading.z << "," << state.imu_data.accel.x << "," << state.imu_data.accel.y << "," << state.imu_data.accel.z << "," << state.velo.Mach << "," << state.velo.xdot_4 << "," << state.velo.xdot_3 << "," << state.velo.xdot_2 << "," << state.velo.xdot_1 << "," << state.velo.xdot << "," << state.velo.zdot_4 << "," << state.velo.zdot_3 << "," << state.velo.zdot_2 << "," << state.velo.zdot_1 << "," << state.velo.zdot << "," << loop_time << endl;
+        log_state(state, start, P0, T0, loop_time);
+        // testing << chrono::duration<double>(chrono::high_resolution_clock::now() - start).count() << "," << state.status << "," << state.altimeter.pressure4 << "," << state.altimeter.pressure3 << "," << state.altimeter.pressure2 << "," << state.altimeter.pressure1 << "," << state.altimeter.pressure << "," << state.altimeter.filt_pressure4 << "," << state.altimeter.filt_pressure3 << "," << state.altimeter.filt_pressure2 << "," << state.altimeter.filt_pressure1 << "," << state.altimeter.filt_pressure << "," << state.altimeter.temp << "," << P0 << "," << T0 << "," << state.altimeter.z << "," <<state.imu_data.heading.x << "," << state.imu_data.heading.y << "," << state.imu_data.heading.z << "," << state.imu_data.accel.x << "," << state.imu_data.accel.y << "," << state.imu_data.accel.z << "," << state.velo.Mach << "," << state.velo.xdot_4 << "," << state.velo.xdot_3 << "," << state.velo.xdot_2 << "," << state.velo.xdot_1 << "," << state.velo.xdot << "," << state.velo.zdot_4 << "," << state.velo.zdot_3 << "," << state.velo.zdot_2 << "," << state.velo.zdot_1 << "," << state.velo.zdot << "," << loop_time << endl;
         cout << state.status << endl;       //For debugging, REMOVE PRIOR TO FLIGHT
 
     }
 
     //Write the data, command the servo to return to the home position, put the Pi to sleep
     APOGEE_DETECTED_status(state, data_log, Pwm_pin, Pwm_home_value);
+
+    // End logging thread
+    log_stop();
+    logger_thread.join();
     
     cout << "Testing done" << endl;     //For debugging
-    testing.close();
+    // testing.close();
     return 0;
 }
 
@@ -360,8 +369,6 @@ void APOGEE_DETECTED_status(state_t &state, list<pair<long, state_t>> &data_log,
 {
     pwmWrite(Pwm_pin, Pwm_home_value);
     delay(500);
-    //Write all data to file
-    //Maybe Pi sleep here? Will that mess up the data log??
 
     return;
 }
