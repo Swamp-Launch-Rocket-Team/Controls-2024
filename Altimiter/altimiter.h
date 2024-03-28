@@ -109,17 +109,17 @@ uint32_t sample(char conv)
     return buff[1] << 16 | buff[2] << 8 | buff[3];
 }
 
-template <class T>
+template <class T, class U, class V>
 T clamp(T val, T min, T max)
 {
-    if (val > max)
+    if (val > (T)max)
     {
-        return max;
+        return (T)max;
     }
 
-    if (val < min)
+    if (val < (T)min)
     {
-        return min;
+        return (T)min;
     }
 
     return val;
