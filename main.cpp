@@ -176,7 +176,7 @@ int main()
         state.imu_data = imu_read_data();       //Read from imu and write to the state imu data struct
         rotation(state);            //TEST
         // Altimiter read
-        altimiter_t alt_data = get_temp_and_pressure(); // THIS DELAYS FOR 20ms, talk to Chris to change
+        altimiter_t alt_data = get_temp_and_pressure(); 
         state.altimeter.pressure = alt_data.pressure*100.0;;
         state.altimeter.temp = alt_data.temp + 273.15;
         pressure_filter(state, cal, cur);
@@ -229,7 +229,7 @@ int main()
 
 
         //Write to testing file, REMOVE PRIOR TO FLIGHT
-        log_state(state, start, P0, T0, loop_time);
+        log_state(state, start, P0, T0, loop_time, velo_window, velo_counter);
         // testing << chrono::duration<double>(chrono::high_resolution_clock::now() - start).count() << "," << state.status << "," << state.altimeter.pressure4 << "," << state.altimeter.pressure3 << "," << state.altimeter.pressure2 << "," << state.altimeter.pressure1 << "," << state.altimeter.pressure << "," << state.altimeter.filt_pressure4 << "," << state.altimeter.filt_pressure3 << "," << state.altimeter.filt_pressure2 << "," << state.altimeter.filt_pressure1 << "," << state.altimeter.filt_pressure << "," << state.altimeter.temp << "," << P0 << "," << T0 << "," << state.altimeter.z << "," <<state.imu_data.heading.x << "," << state.imu_data.heading.y << "," << state.imu_data.heading.z << "," << state.imu_data.accel.x << "," << state.imu_data.accel.y << "," << state.imu_data.accel.z << "," << state.velo.Mach << "," << state.velo.xdot_4 << "," << state.velo.xdot_3 << "," << state.velo.xdot_2 << "," << state.velo.xdot_1 << "," << state.velo.xdot << "," << state.velo.zdot_4 << "," << state.velo.zdot_3 << "," << state.velo.zdot_2 << "," << state.velo.zdot_1 << "," << state.velo.zdot << "," << loop_time << endl;
         cout << state.status << endl;       //For debugging, REMOVE PRIOR TO FLIGHT
         // printf("%d", state.status);     //For debugging, REMOVE PRIOR TO FLIGHT
@@ -387,7 +387,7 @@ void APOGEE_DETECTED_status(state_t &state, list<pair<long, state_t>> &data_log,
 //Add all of the other functions here: launch detect, maybe servo arming, detect motor burn end, detect apogee, write data from Jasons main, 
 bool detect_launch(state_t state, int &launch_count)
 {
-    float detection_acceleration = 0.2 * 9.81;      //CHANGE TO 5.0*9.81
+    float detection_acceleration = 1.0 * 9.81;      //CHANGE TO 5.0*9.81
     // fix bs way too high numbers by setting to 0
 
     if (launch_count > 3) {
@@ -737,7 +737,7 @@ void zdot_calc(state_t &state, chrono::_V2::system_clock::time_point cal, chrono
         
         if (velo_counter == 6)
         {
-            velo_counter == 0;
+            velo_counter = 0;
         }
         else
         {

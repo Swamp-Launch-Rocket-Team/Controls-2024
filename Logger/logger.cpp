@@ -82,7 +82,7 @@ void log_message(const std::string& message, std::chrono::time_point<std::chrono
     log_queue.push(LogEntry{LogType::MSG,formatted});
 }
 
-void log_state(state_t state, std::chrono::time_point<std::chrono::high_resolution_clock> start, float P0, float T0, float loop_time)
+void log_state(state_t state, std::chrono::time_point<std::chrono::high_resolution_clock> start, float P0, float T0, float loop_time, float velo_window, float velo_counter)
 {
     std::stringstream stream;
     stream << std::fixed << std::setprecision(6) << chrono::duration<double>(chrono::high_resolution_clock::now() - start).count() << "," << state.status << "," << 
@@ -95,7 +95,7 @@ void log_state(state_t state, std::chrono::time_point<std::chrono::high_resoluti
     state.velo.xdot_1 << "," << state.velo.xdot << "," << state.velo.zdot_4 << "," << state.velo.zdot_3 << "," << state.velo.zdot_2 << "," <<
     state.velo.zdot_1 << "," << state.velo.zdot << "," <<
     state.velo.integral_veloz << "," << state.velo.prev_integral_veloz << "," << state.theta_window1[0] <<
-    "," << state.theta_window2[0] << "," << state.dt_window1[0] << "," << state.dt_window2[0] << "," << loop_time;
+    "," << state.theta_window2[0] << "," << state.dt_window1[0] << "," << state.dt_window2[0] << "," << velo_window << "," << velo_counter << loop_time;
 
     std::string formatted = stream.str();
 

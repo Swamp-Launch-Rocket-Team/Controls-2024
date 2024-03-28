@@ -30,7 +30,7 @@ struct LogEntry
 
 void log_thread();
 
-void log_state(state_t state, std::chrono::time_point<std::chrono::high_resolution_clock>  start, float P0, float T0, float loop_time);
+void log_state(state_t state, std::chrono::time_point<std::chrono::high_resolution_clock>  start, float P0, float T0, float loop_time, float velo_window, float velo_counter);
 
 void log_message(const std::string& message, std::chrono::time_point<std::chrono::high_resolution_clock>  start);
 

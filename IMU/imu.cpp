@@ -160,7 +160,7 @@ imu_data_t imu_read_data()
         // cout << endl;
     // }
 
-    imu_data = rotate_axes(imu_data);
+    // imu_data = rotate_axes(imu_data);
 
     return imu_data;
 }
