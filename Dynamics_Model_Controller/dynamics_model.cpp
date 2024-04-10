@@ -10,7 +10,7 @@ using namespace std;
 
 //defines
 #define g 9.81
-#define m 33.94     //DEPENDENT
+#define m 32.6     //DEPENDENT
 // #define theta_0 13
 #define m_to_ft 3.28084
 #define pi 3.14159265
@@ -157,12 +157,12 @@ float dynamics_model::Calc_rho(float z)
 	// 
 	//float z = 3002.3;     //Altitude [m], THIS IS THE INPUT
 
-	float T0 = 310;        //Temperature at ground level [K], DEPENDENT
+	float T0 = 297.6;        //Temperature at ground level [K], DEPENDENT
 	float L = 0.0065;      //Lapse rate 
 
 	float T = T0 - L * z;        //Temperature at current altitude [K]
 
-	float rho0 = 1.13;     //Air density at ground level, THIS NEEDS TO CHANGE BASED ON FLORIDA OR SPACEPORT LAUNCH SITE, DEPENDENT
+	float rho0 = 1.225;     //Air density at ground level, THIS NEEDS TO CHANGE BASED ON FLORIDA OR SPACEPORT LAUNCH SITE, DEPENDENT
 	// float g = 9.81;        //Gravity [m/s^2]
 	float R = 287.0531;    //Universal gas constant for air
 
@@ -203,7 +203,7 @@ float dynamics_model::Calc_area(float U_airbrake)
 	// i have this as the input
 	// float U_airbrake = 0.25;       //Input of the airbrake, this is from 0 -> 1, THIS WILL BE THE INPUT 
 
-	float Servo_angle = 105 * U_airbrake;        //Servo angle in degrees
+	float Servo_angle = 105.0 * U_airbrake;        //Servo angle in degrees
 
 	float A_airbrake;
 
@@ -214,7 +214,7 @@ float dynamics_model::Calc_area(float U_airbrake)
 	else
 	{
 		//Max cross-sectional area of airbrake during extension in [m^2]
-		A_airbrake = 0.00064516 * (8.48389446479259e-8 * pow(Servo_angle, 4) - 0.0000348194172718423 * pow(Servo_angle, 3) + 0.00388560760536394 * pow(Servo_angle, 2) - 0.0629348277080075 * Servo_angle + 0.148040926341214);
+		A_airbrake = abs(0.00064516 * (8.48389446479259e-8 * pow(Servo_angle, 4) - 0.0000348194172718423 * pow(Servo_angle, 3) + 0.00388560760536394 * pow(Servo_angle, 2) - 0.0629348277080075 * Servo_angle + 0.148040926341214));
 	}
 
 	float A_cross = A_rocket + A_airbrake;     //Cross sectional area of the rocket, THIS IS THE OUTPUT
@@ -235,14 +235,14 @@ float dynamics_model::Calc_drag(float rho, float v_rocket_squared, float cd, flo
 
 float dynamics_model::Calc_x_float_dot(float theta, float drag)
 {
-    float x_float_dot = (-1 / m) * sin(theta) * drag;
+    float x_float_dot = (-1.0 / m) * sin(theta) * drag;
 
 	return x_float_dot;
 }
 
 float dynamics_model::Calc_z_float_dot(float theta, float drag)
 {
-    float z_float_dot = (-1 / m) * ((drag*cos(theta)) + (m*g));
+    float z_float_dot = (-1.0 / m) * ((drag*cos(theta)) + (m*g));
 
 	return z_float_dot;
 }

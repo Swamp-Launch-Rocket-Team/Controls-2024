@@ -4,6 +4,7 @@
 #include "controller.h"
 #include "pi.h"
 #include <unordered_map>
+#include <chrono>
 
 using namespace std;
 
@@ -17,9 +18,9 @@ int main()
 
     //Initial Conditions
     float x = 0.0;
-	float z = 753;
-	float x_dot = 58.38;
-	float z_dot = 285;
+	float z = 787;
+	float x_dot = 63.9;
+	float z_dot = 296.0;
     float U_airbrake = 0;
 
     // time step info
@@ -28,9 +29,11 @@ int main()
 
     // tracking how many times its been integrated
     int num_integrated = 0;
+    auto t_start = chrono::high_resolution_clock::now();
     dynamics_model test(theta_map);
 
     // run dynamics model
+    // auto t_start = chrono::high_resolution_clock::now();
     test.init_model();
     test.dynamics(t,x,z,x_dot,z_dot,dt,U_airbrake);
     cout << "Apogee expected:\t" <<test.get_apogee_expected() << endl;
@@ -41,6 +44,7 @@ int main()
     float altitude = 1000;
     airbrake.init_controller(Pwm_home_value, Pwm_max_value);        //initializes the controller, this should only run once, probably at the end of the Launch Detected status
     float output = airbrake.controller_loop(test.get_apogee_expected(), Mach, altitude);        //method that finds the airbrake output in PWM signal
+    cout << chrono::duration<double>(chrono::high_resolution_clock::now() - t_start).count() << endl;
     //cout << "Final controller output:" << "\t" << airbrake.get_airbrake_output() << endl;       //Prints airbrake controller output
     cout << "U_airbrake:\t" << output << endl;
 

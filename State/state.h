@@ -9,10 +9,10 @@ struct state_t
 {
     imu_data_t imu_data;
 
-    float theta_prev = 0.0;
     float theta = 0.0;
 
-    float prev_accel = 0.0;
+    float prev_accelz = 0.0;
+
     
     vector<float> accel_window1{0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0};        //For velo during launch detect
     vector<float> accel_window2{0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0};        //For velo during launch detect
@@ -20,7 +20,6 @@ struct state_t
     vector<float> dt_window2{0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0};            //For velo during launch detect
     vector<float> theta_window1{0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0};            //For velo during launch detect
     vector<float> theta_window2{0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0};            //For velo during launch detect
-
 
 
     //Altimeter altitude
@@ -75,6 +74,7 @@ struct state_t
     {
         float apogee_expected = 0.0;
         float U_airbrake = 0.0;
+        float prev_error = 0.0;
     } airbrake;
 
     enum status_t
@@ -83,7 +83,8 @@ struct state_t
         ARMED,
         LAUNCH_DETECTED,
         ACTUATION,
-        APOGEE_DETECTED
+        DESCENT,
+        LAND,
     } status;
 };
 

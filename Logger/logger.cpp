@@ -82,7 +82,7 @@ void log_message(const std::string& message, std::chrono::time_point<std::chrono
     log_queue.push(LogEntry{LogType::MSG,formatted});
 }
 
-void log_state(state_t state, std::chrono::time_point<std::chrono::high_resolution_clock> start, float P0, float T0, float loop_time, float velo_window, float velo_counter)
+void log_state(state_t state, std::chrono::time_point<std::chrono::high_resolution_clock> start, float P0, float T0, float loop_time, float velo_windowx, float velo_counterx, float theta_0)
 {
     std::stringstream stream;
     stream << std::fixed << std::setprecision(6) << chrono::duration<double>(chrono::high_resolution_clock::now() - start).count() << "," << state.status << "," << 
@@ -91,11 +91,12 @@ void log_state(state_t state, std::chrono::time_point<std::chrono::high_resoluti
     state.altimeter.filt_pressure2 << "," << state.altimeter.filt_pressure1 << "," << state.altimeter.filt_pressure << "," <<
     state.altimeter.temp << "," << P0 << "," << T0 << "," << state.altimeter.z << "," <<state.imu_data.heading.x << "," <<
     state.imu_data.heading.y << "," << state.imu_data.heading.z << "," << state.imu_data.accel.x << "," << state.imu_data.accel.y << "," <<
-    state.imu_data.accel.z << "," << state.velo.Mach << "," << state.velo.xdot_4 << "," << state.velo.xdot_3 << "," << state.velo.xdot_2 << "," <<
+    state.imu_data.accel.z << "," << state.imu_data.ang_v.x << "," << state.imu_data.ang_v.y << "," << state.imu_data.ang_v.z << "," <<
+     "," << state.velo.Mach << "," << state.velo.xdot_4 << "," << state.velo.xdot_3 << "," << state.velo.xdot_2 << "," <<
     state.velo.xdot_1 << "," << state.velo.xdot << "," << state.velo.zdot_4 << "," << state.velo.zdot_3 << "," << state.velo.zdot_2 << "," <<
-    state.velo.zdot_1 << "," << state.velo.zdot << "," <<
-    state.velo.integral_veloz << "," << state.velo.prev_integral_veloz << "," << state.theta_window1[0] <<
-    "," << state.theta_window2[0] << "," << state.dt_window1[0] << "," << state.dt_window2[0] << "," << velo_window << "," << velo_counter << loop_time;
+    state.velo.zdot_1 << "," << state.velo.zdot << "," << state.velo.integral_velox << "," << state.velo.prev_integral_velox << "," << 
+    state.velo.integral_veloz << "," << state.velo.prev_integral_veloz << "," << state.theta << "," << state.airbrake.prev_error << "," <<
+    state.airbrake.apogee_expected << "," << state.airbrake.U_airbrake << "," << velo_windowx << "," << velo_counterx << "," << loop_time;
 
     std::string formatted = stream.str();
 
