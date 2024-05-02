@@ -26,45 +26,34 @@ int main()
 
     printf("Servo PWM Testing \nPWM Pin: %d\n", Pwm_pin);       //Print that testing is beginning and the PWM pin
 
-    // pwmWrite(Pwm_pin, 285);
-    // delay(1000);
-
-    // for(int i = min_Pwm; i < pwm_range; i = i + 20)       //For loop for incrementally increasing the PWM signal to the servo
-    // {
-    //     pwmWrite(Pwm_pin, i);       //writes the new PWM signal to the servo
-    //     delay(500);     //0.5s delay
-    //     printf("PWM Value: %d\n", i);       //Prints the current PWM value
-        
-    // }
-
     //Finding the pwm signals that correspond to zero and 180
     //Remember the servo rotates counter clockwise for our application
-    //For 0:
-    //pwmWrite(Pwm_pin, 277);
+    //For 0: start at 345
+    //pwmWrite(Pwm_pin, 345);
     
-    //For 180:
-    //pwmWrite(Pwm_pin, 277 + 480);
+    //For 180: start at 625 and see if this corresponds to 105 degrees of rotation
+    //pwmWrite(Pwm_pin, 625);
 
-    //Test to hit 105 degree using the 0 and 180 values
-    float m = (480.0/180.0);        //THIS IS THE ACTUAL SLOPE WE USE
-    float b = 345;                  //THIS IS THE B WE USE, THIS IS ALSO THE PWM_HOME VALUE AKA 0 DEGREE EXTENSION
-    
-    //int deg_105 = round(m*105 + b);
-    //pwmWrite(Pwm_pin, deg_105);
 
-    float ext = round(m*0 + b);
-    pwmWrite(Pwm_pin, ext);
-    delay(500);
 
-    // Rounding stuff
-    // float notrounded = m*103 + b;
-    // cout << "Not rounded:\t" << notrounded << endl;
-    // const float Pwm_max_value = round(m*103 + b);    //Max value, 105 degrees
-    // cout << "Rounded:\t" << Pwm_max_value << endl;
+
+
+    // //Slope and intercept for servo angle to PWM signal mapping
+    // float m = (480.0/180.0);        //THIS IS THE ACTUAL SLOPE WE USE
+    // float b = 345;                  //THIS IS THE B WE USE, THIS IS ALSO THE PWM_HOME VALUE AKA 0 DEGREE EXTENSION
+
+    // //Use this section to write the servo to a specified angle, this is after verifying the slope m and intercept b
+    // float ext = round(m*0 + b);
+    // pwmWrite(Pwm_pin, ext);
+    // delay(500);
+
+
+
+
 
 
     //Aibrake flap extension test from 0 degrees to a specified value in the int ext definition line.
-    // pwmWrite(Pwm_pin, ext);
+    // pwmWrite(Pwm_pin, b);
     // delay(500);
     // delay(1000);
     // int ext = round(m*90 + b);
@@ -76,10 +65,15 @@ int main()
     //     pwmWrite(Pwm_pin, ext);
     //     delay(1000);
     // }
-    
     //pwmWrite(Pwm_pin, b);
 
-    //Aibrake flap extension test from 0 degrees to 105 degrees
+
+
+
+
+    //Aibrake flap extension test from 0 degrees to 105 degrees and then from 105 to 0 degrees
+    // pwmWrite(Pwm_pin, b);
+    // delay(500);
     //Use m and b to create a mapping from 0 degrees to 105 degrees.
     // int pwm_command;
     // for(int i = 0; i < 106; i = i + 5)
@@ -96,7 +90,9 @@ int main()
     //     delay(250);
     //     pwmWrite(Pwm_pin, pwm_command);
     //     cout << pwm_command << endl;        
-    // }    
+    // }
+    // delay(500); 
+    // pwmWrite(Pwm_pin, b);   
 
     cout << "Testing done" << endl;     //Prints to the command that testing has concluded
 
