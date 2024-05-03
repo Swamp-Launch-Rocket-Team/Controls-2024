@@ -35,12 +35,21 @@
 #define CMD_PROM_C6 0xAC       // Temperature coefficient of the temperature | TEMPSENS
 #define CMD_PROM_CRC 0xAE      // CRC value
 
-#define CALIBRATION_C1 38084
-#define CALIBRATION_C2 35453
-#define CALIBRATION_C3 23313
-#define CALIBRATION_C4 21911
-#define CALIBRATION_C5 33371
-#define CALIBRATION_C6 27363
+//These are the old calibration vaLUES
+// #define CALIBRATION_C1 38084
+// #define CALIBRATION_C2 35453
+// #define CALIBRATION_C3 23313
+// #define CALIBRATION_C4 21911
+// #define CALIBRATION_C5 33371
+// #define CALIBRATION_C6 27363
+
+//New clibration values
+#define CALIBRATION_C1 40218
+#define CALIBRATION_C2 35118
+#define CALIBRATION_C3 24781
+#define CALIBRATION_C4 23756
+#define CALIBRATION_C5 32642
+#define CALIBRATION_C6 27068
 
 // #define ALT_SPI_DEVICE "/dev/spidev0.1"
 // #define ALT_SPI_MODE SPI_MODE_0
@@ -110,7 +119,7 @@ uint32_t sample(char conv)
 }
 
 template <class T, class U, class V>
-T clamp(T val, T min, T max)
+T clamp(T val, U min, V max)
 {
     if (val > (T)max)
     {
@@ -148,6 +157,5 @@ altimiter_t get_temp_and_pressure()
     altimiter_t data;
     data.pressure = p / 100.0f; // units is millibar
     data.temp = temp / 100.0f; // units is C
-
     return data;
 }
