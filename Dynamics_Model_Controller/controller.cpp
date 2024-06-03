@@ -22,7 +22,7 @@ void controller::init_controller(float Pwm_home_value, float Pwm_max_value) //Th
     this->parameters.limMax_Integrator = 1;
     this->parameters.prev_error = 0;
     this->parameters.airbrake_output = Pwm_home_value;
-    this->parameters.slope_PWM = 480.0/180.0;
+    this->parameters.slope_PWM = 280.0;
     this->parameters.b_PWM = Pwm_home_value;
 }
 //was float as return type
