@@ -38,7 +38,7 @@ int main()
 
     int ii = 0;
 
-    while (ii < 500)
+    while (ii < 400)
     {
         int a = 0;
         auto cur = chrono::high_resolution_clock::now();
