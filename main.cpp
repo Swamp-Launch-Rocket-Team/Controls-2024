@@ -116,6 +116,8 @@ int main()
     auto motor_burn_time = chrono::high_resolution_clock::now();    //This gets reset once motor burn is detected
     auto apogee_time = chrono::high_resolution_clock::now();    //This gets reset once apogee has been detected
     auto t_end = chrono::high_resolution_clock::now();          //This gets reset at the end of each loop in the switch statement
+    auto measurement_prev = chrono::high_resolution_clock::now();   //Previous sensor measurement time
+    auto measurement_cur = chrono::high_resolution_clock::now();    //Current sensor measurement time
 
 
     //Set the status to PAD
@@ -185,9 +187,16 @@ int main()
         altimiter_t alt_data = get_temp_and_pressure(); 
         state.altimeter.pressure = alt_data.pressure*100.0;;
         state.altimeter.temp = alt_data.temp + 273.15;
+        measurement_cur = chrono::high_resolution_clock::now();     //Set current time to the current measurement time
+        if (!first_loop)
+        {
+            loop_time = chrono::duration<double>(measurement_cur - measurement_prev).count();   //accurate loop time is the exact time between measurements
+        }
+        measurement_prev = measurement_cur;     //Set previous measurement time to the current measurement time
+        first_loop = false;
         pressure_filter(state, cal, cur);
         state.altimeter.z = pressure_to_altitude(state, T0, P0, cal, cur);
-
+        
         //Find the current xdot, zdot, and Mach number
         xdot_calc(state, cal, cur, loop_time, velo_windowx, velo_counterx, launch_count, end_velostuffx);       //in m/s i think,
         zdot_calc(state, cal, cur, loop_time, velo_windowz, velo_counterz, launch_count, end_velostuffz);       //in m/s i think,
@@ -238,12 +247,6 @@ int main()
         log_state(state, start, P0, T0, loop_time, velo_windowx, velo_counterx, theta_0);
             
         // cout << chrono::duration<double>(chrono::high_resolution_clock::now() - start).count() << "\t" << state.status << "\t" << state.altimeter.z << "\t" << state.theta << "\t" << state.velo.integral_velox << "\t" << state.velo.integral_veloz << "\t" << state.airbrake.apogee_expected << "\t" << state.airbrake.U_airbrake << "\t" << chrono::duration<double>(chrono::high_resolution_clock::now() - motor_burn_time).count() << "\t" << chrono::duration<double>(cur - apogee_time).count() << endl;
-
-        if (!first_loop)
-        {
-            loop_time = chrono::duration<double>(chrono::high_resolution_clock::now() - cur).count();
-        }
-        first_loop = false;
     }
 
     //Write the data, command the servo to return to the home position, put the Pi to sleep
