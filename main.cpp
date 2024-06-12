@@ -27,12 +27,12 @@
 #define m_to_ft 3.28084
 #define R 287.058
 #define g 9.81
-#define press_expected 101060.0        //Expected pressure at launch site in Pa, DEPENDENT          --DONE 
-#define temp_expected 297.6            //Expected temperature at launch site in kelvin, DEPENDENT   --DONE
-#define press_min 20000.0              //Min for outlier of, DEPENDENT                              --DONE
-#define press_max 105000.0             //Max outlier for press, DEPENDENT                           --DONE
-#define temp_min 280.0                 //Min temp in KELVIN, DEPENDENT                              --DONE
-#define temp_max 305.15                 //Max temp in KELVIN, DEPENDENT                             --DONE
+#define press_expected 101060.0        //Expected pressure at launch site in Pa, DEPENDENT          -- 
+#define temp_expected 297.6            //Expected temperature at launch site in kelvin, DEPENDENT   --
+#define press_min 20000.0              //Min for outlier of, DEPENDENT                              --
+#define press_max 105000.0             //Max outlier for press, DEPENDENT                           --
+#define temp_min 280.0                 //Min temp in KELVIN, DEPENDENT                              --
+#define temp_max 305.15                 //Max temp in KELVIN, DEPENDENT                             --
 #define lapse 0.0065                  //Lapse rate for pressure to altitude calc
 #define D2R M_PI/180.0                  //Degrees to radians conversion
 #define ZDOT_MAX 330.0                   //Max zdot, dynamics model fails at higher values (M > 1)
@@ -341,8 +341,8 @@ void ACTUATION_status(int Pwm_pin, float Pwm_home_value, float Pwm_max_value, st
     // auto t_start = chrono::high_resolution_clock::now();
     ii = 2;
 
-    float t_min = 16.0;     //minimum time expected to apogee from end of motor burn, DEPENDENT         --DONE
-    float t_max = 26.0;     //max time expected to apogee from end of motor burn, DEPENDENT             --DONE
+    float t_min = 16.0;     //minimum time expected to apogee from end of motor burn, DEPENDENT         --
+    float t_max = 26.0;     //max time expected to apogee from end of motor burn, DEPENDENT             --
 
     float t = 0.0;
     float dt = 0.1;
@@ -783,7 +783,7 @@ void Mach_calc(state_t &state)
     else
     {
         float V_rocket = (sqrt(pow(state.velo.xdot, 2) + pow(state.velo.zdot,2)))*m_to_ft;  //in ft/s
-        float h = 13.0 + state.altimeter.z*m_to_ft;   //in ft, first value is DEPENDENT on the launch site          --DONE
+        float h = 13.0 + state.altimeter.z*m_to_ft;   //in ft, first value is DEPENDENT on the launch site          --
         float a = -0.004 * h + 1116.45;
         state.velo.Mach = V_rocket/a;       //Mach number
     }

@@ -13,7 +13,7 @@ Drag::Drag()
 
 Drag::Drag(float z, float V_rocket, float U_airbrake)
 {
-    this->drag_parameters.h = 13.0 + z; // altitude above ground feet, first value is DEPENDENT on the launch site
+    this->drag_parameters.h = 13.0 + z; // altitude above ground feet, first value is DEPENDENT on the launch site		--
 	this->drag_parameters.a = -0.004 * drag_parameters.h + 1116.45; // speed of sound approx ft/s
 	this->drag_parameters.M = V_rocket / drag_parameters.a; // local mach number
 	float visc = 0.000157 * exp(drag_parameters.aa * drag_parameters.h);// kinematic viscosity ft2/s
