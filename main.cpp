@@ -35,9 +35,11 @@
 #define temp_max 305.15                 //Max temp in KELVIN, DEPENDENT                             --DONE
 #define lapse 0.0065                  //Lapse rate for pressure to altitude calc
 #define D2R M_PI/180.0                  //Degrees to radians conversion
+#define ZDOT_MAX 330.0                   //Max zdot, dynamics model fails at higher values (M > 1)
+#define XDOT_MAX 80.0                   //Max xdot, dynamics model fails at higher values (M > 1)
 
 //
-//Here list the "prototypes", this is just the initialization of the functions, all state transition functions, write data, launch detect, send servo command, etc..
+//Here list the function prototypes and states
 void PAD_status(int Pwm_pin, float Pwm_home_value, float Pwm_max_value, state_t &state, chrono::_V2::system_clock::time_point &cal);
 void ARMED_status(state_t &state, chrono::_V2::system_clock::time_point start, chrono::_V2::system_clock::time_point &launch_time, chrono::_V2::system_clock::time_point cal, chrono::_V2::system_clock::time_point cur, vector<float> &press_cal, vector<float> &temp_cal, float &T0, float &P0, int &launch_count);
 void LAUNCH_DETECTED_status(state_t &state, chrono::_V2::system_clock::time_point &motor_burn_time, float &theta_0, chrono::_V2::system_clock::time_point launch_time, chrono::_V2::system_clock::time_point cur, unordered_map<int, float> &theta_map, int &ii);  //Needs more inputs i think
@@ -47,9 +49,7 @@ void LAND_STATUS(state_t &state, int Pwm_pin, float Pwm_home_value);
 
 
 bool detect_launch(state_t state, int &launch_count);
-// float axes_mag(axes_t &axes);       //Prolly don't need this, can just pull the indiv values instead of having a function
 unordered_map<int, float> pitchanglevector(float theta_0);       //USE THIS IN MAIN
-// pair<vector<int>, vector<float>> pitchanglevector(float theta_0); 
 void rotation(state_t &state);
 void xdot_calc(state_t &state, chrono::_V2::system_clock::time_point cal, chrono::_V2::system_clock::time_point cur, float loop_time, bool &velo_windowx, int &velo_counterx, int launch_count, int &end_velostuffx);
 void zdot_calc(state_t &state, chrono::_V2::system_clock::time_point cal, chrono::_V2::system_clock::time_point cur, float loop_time, bool &velo_windowz, int &velo_counterz, int launch_count, int &end_velostuffz);     
@@ -100,12 +100,6 @@ int main()
 
     //Store the airbrakes current state
     state_t state; // Stores information of airbrake state
-
-
-    //Idk what exactly this does but Jason has it, the detect launch index is used in the launch detect algorithm
-    // list<pair<long, state_t>> data_log;
-    // pair<long, state_t> launch_detect_log[1024];
-    // int launch_detect_log_index = 0;
 
 
     //Initialize and define variables for starting time and current time
@@ -238,9 +232,6 @@ int main()
                 break;
         }
 
-        //JASONS Log the data
-        // data_log.push_back(make_pair(chrono::duration_cast<chrono::microseconds>(cur - start).count(), state));
-
         //Delay so that IMU and altimeter do not read too fast
         while (chrono::duration_cast<chrono::microseconds>(chrono::high_resolution_clock::now() - cur).count() < 9500);
 
@@ -357,8 +348,32 @@ void ACTUATION_status(int Pwm_pin, float Pwm_home_value, float Pwm_max_value, st
     float dt = 0.1;
     int num_integrated = 0;
     float x_dot = abs(state.velo.xdot);        
-    float z_dot = abs(state.velo.zdot);        
+    float z_dot = abs(state.velo.zdot);
+    if (z_dot > ZDOT_MAX)
+    {
+        z_dot = ZDOT_MAX;
+    }
+    if (x_dot > XDOT_MAX)
+    {
+        x_dot = XDOT_MAX;
+    }        
     float z = abs(state.altimeter.z);
+    float a = -0.004*z*m_to_ft + 1116.45;       //From the drag model
+    float v_rocket = sqrt(pow(z_dot,2) + pow(x_dot,2))*m_to_ft;
+    float cur_mach = v_rocket/a;
+    while (cur_mach >= 0.98)        //Need to decrease velocity to get mach below 0.98 so dynamics model does not have an error
+    {
+        if (x_dot > 0.0)
+        {
+            x_dot -= 1.0;       //We are assuming zdot is accurate and xdot is the issue
+        }
+        else
+        {
+            z_dot -= 1.0;
+        }
+        v_rocket = sqrt(pow(z_dot,2) + pow(x_dot,2))*m_to_ft;
+        cur_mach = v_rocket/a;
+    }
 
     if (chrono::duration<double>(cur - motor_burn_time).count() >= t_max)      //if the time since motor burn end is greater than 24 seconds, we should have hit apogee
     {
@@ -539,124 +554,6 @@ unordered_map<int, float> pitchanglevector(float theta_0)
 
     return theta_map;
 }
-
-// pair<vector<int>, vector<float>> pitchanglevector(float theta_0)
-// {
-//     const static vector<float> m_theta{ 0.000525089, 0.000690884, 0.001009584, 0.001398228, 0.001801924 };    //Slopes for linear region, determined in excel
-
-//     vector<int> theta_region(8501);     //Size of theta region
-
-//     for (size_t i = 0; i < theta_region.size(); i++)        //Sets theta region from altitude of 2500 ft o 11k feet
-//     {
-//         theta_region[i] = i + 2500;
-//     }
-
-//     vector<float> theta_vector(theta_region.size());       //initializes theta vector, same size as theta region
-
-//     //Linear fit region, 2.5k ft to 7k ft
-//     float b;
-
-//     if (theta_0 <= 7)        //All of the if statements for theta_0
-//     {
-//         b = theta_0 - m_theta[0] * 2500;
-//         for (int i = 0; i < 4501; i++)
-//         {
-//             theta_vector[i] = m_theta[0] * theta_region[i] + b;
-//         }
-//     }
-//     else if (theta_0 < 7 && theta_0 < 10)
-//     {
-//         b = theta_0 - m_theta[1] * 2500;
-//         for (int i = 0; i < 4501; i++)
-//         {
-//             theta_vector[i] = m_theta[1] * theta_region[i] + b;
-//         }
-//     }
-//     else if (theta_0 >= 10 && theta_0 < 14)
-//     {
-//         b = theta_0 - m_theta[2] * 2500;
-//         for (int i = 0; i < 4501; i++)
-//         {
-//             theta_vector[i] = m_theta[2] * theta_region[i] + b;
-//         }
-//     }
-//     else if (theta_0 >= 14 && theta_0 < 19)
-//     {
-//         b = theta_0 - m_theta[3] * 2500;
-//         for (int i = 0; i < 4501; i++)
-//         {
-//             theta_vector[i] = m_theta[3] * theta_region[i] + b;
-//         }
-//     }
-//     else
-//     {
-//         b = theta_0 - m_theta[4] * 2500;
-//         for (int i = 0; i < 4501; i++)
-//         {
-//             theta_vector[i] = m_theta[4] * theta_region[i] + b;
-//         }
-//     }
-//     //End of Linear fit region, ends at index 4500 at an altitude of 7k feet
-
-//     //Start of the Quadratic fit region, 7k ft to 10k ft
-//     vector<float> a_theta{ 8.26652482191255e-7, 1.03558936423213e-6, 1.53275631191493e-6, 2.17922684530253e-6, 2.92066636707301e-6 };
-
-//     int h_theta = 0;        //Parabola parameter for quadratic region
-//     float k_theta = theta_vector[4500];        //Initial value of quadratic region
-
-//     if (theta_0 < 7)     //if statements for the different initial thetas
-//     {
-//         for (int i = 4501; i < 7501; i++)
-//         {
-//             theta_vector[i] = a_theta[0] * pow(((theta_region[i] - 7000) - -h_theta), 2) + k_theta;
-//         }
-//     }
-//     else if (theta_0 < 7 && theta_0 < 10)
-//     {
-//         for (int i = 4501; i < 7501; i++)
-//         {
-//             theta_vector[i] = a_theta[1] * pow(((theta_region[i] - 7000) - -h_theta), 2) + k_theta;
-//         }
-//     }
-//     else if (theta_0 >= 10 && theta_0 < 14)
-//     {
-//         for (int i = 4501; i < 7501; i++)
-//         {
-//             theta_vector[i] = a_theta[2] * pow(((theta_region[i] - 7000) - -h_theta), 2) + k_theta;
-//         }
-//     }
-//     else if (theta_0 >= 14 && theta_0 < 19)
-//     {
-//         for (int i = 4501; i < 7501; i++)
-//         {
-//             theta_vector[i] = a_theta[3] * pow(((theta_region[i] - 7000) - -h_theta), 2) + k_theta;
-//         }
-//     }
-//     else
-//     {
-//         for (int i = 4501; i < 7501; i++)
-//         {
-//             theta_vector[i] = a_theta[4] * pow(((theta_region[i] - 7000) - -h_theta), 2) + k_theta;
-//         }
-//     }
-//     //End of Quadratic fit region, ends at index 7500 at an altitude of 10k feet
-
-//     //Region after Quadratic region, increase linearly until 90 degrees at a steep slope
-//     float inc = 0.1;        //increment for the linear section past the quadratic region
-//     vector<float> int_vec(1000);      //interval vector initialization
-
-//     for (size_t i = 0; i < int_vec.size(); i++)     //interval vector definition, 1:1:1000
-//     {
-//         int_vec[i] = i + 1.0;
-//     }
-
-//     for (size_t i = 7501; i < theta_vector.size(); i++)     //adds the last linear section past quadratic region
-//     {
-//         theta_vector[i] = theta_vector[7500] + inc * int_vec[i - 7501];
-//     }
-
-//     return {theta_region,theta_vector};
-// }
 
 void rotation(state_t &state)
 {
@@ -919,7 +816,8 @@ void pressure_filter(state_t &state, chrono::_V2::system_clock::time_point cal, 
             state.altimeter.pressure = (state.altimeter.pressure1 - state.altimeter.pressure2) + state.altimeter.pressure1; 
         }   
 
-        state.altimeter.filt_pressure = state.altimeter.filt_pressure1*1.561 - state.altimeter.filt_pressure2*0.6414 + state.altimeter.pressure*0.0201 + state.altimeter.pressure1*0.0402 + state.altimeter.pressure2*0.0201;
+        // state.altimeter.filt_pressure = state.altimeter.filt_pressure1*1.561 - state.altimeter.filt_pressure2*0.6414 + state.altimeter.pressure*0.0201 + state.altimeter.pressure1*0.0402 + state.altimeter.pressure2*0.0201;
+        state.altimeter.filt_pressure = state.altimeter.filt_pressure1*1.143 - state.altimeter.filt_pressure2*0.4128 + state.altimeter.pressure*0.0675 + state.altimeter.pressure1*0.1349 + state.altimeter.pressure2*0.0675;
         state.altimeter.filt_pressure4 = state.altimeter.filt_pressure3;
         state.altimeter.filt_pressure3 = state.altimeter.filt_pressure2;
         state.altimeter.filt_pressure2 = state.altimeter.filt_pressure1;
@@ -953,9 +851,3 @@ void theta_calc(state_t &state)
     
     // state.theta = abs(90.0 - atan(sqrt(pow(tan(state.imu_data.heading.x*M_PI/180.0),2) + pow(tan(state.imu_data.heading.y*M_PI/180.0),2)))*180.0/M_PI);
 }
-
-// float axes_mag(axes_t &axes)
-// {
-//     return sqrt(axes.x * axes.x + axes.y * axes.y + axes.z * axes.z);
-// }
-//

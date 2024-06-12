@@ -6,6 +6,11 @@
 #include <unordered_map>
 #include <chrono>
 
+#define ZDOT_MAX 330.0
+#define XDOT_MAX 80.0
+#define m_to_ft 3.28084
+
+
 using namespace std;
 
 unordered_map<int, float> pitchanglevector(float theta_0);       //USE THIS IN MAIN
@@ -13,14 +18,14 @@ unordered_map<int, float> pitchanglevector(float theta_0);       //USE THIS IN M
 int main()
 {
     //Dynamics model testing
-    float theta_0 = 13.0;
+    float theta_0 = 7.73;
     unordered_map<int, float> theta_map = pitchanglevector(theta_0);
 
     //Initial Conditions
     float x = 0.0;
-	float z = 787;
-	float x_dot = 63.9;
-	float z_dot = 296.0;
+	float z = 750; //767.7567
+	float x_dot = 72; //35.57027
+	float z_dot = 360;
     float U_airbrake = 0;
 
     // time step info
@@ -30,6 +35,30 @@ int main()
     // tracking how many times its been integrated
     int num_integrated = 0;
     auto t_start = chrono::high_resolution_clock::now();
+    if (z_dot > ZDOT_MAX)
+    {
+        z_dot = ZDOT_MAX;
+    }
+    if (x_dot > XDOT_MAX)
+    {
+        x_dot = XDOT_MAX;
+    }
+    float a = -0.004*z*m_to_ft + 1116.45;
+    float v_rocket = sqrt(pow(z_dot,2) + pow(x_dot,2))*m_to_ft;
+    float cur_mach = v_rocket/a;
+    while (cur_mach >= 0.98)
+    {
+        if (x_dot > 0.0)
+        {
+            x_dot -= 1.0;       //We are assuming zdot is accurate and xdot is the issue
+        }
+        else
+        {
+            z_dot -= 1.0;
+        }
+        v_rocket = sqrt(pow(z_dot,2) + pow(x_dot,2))*m_to_ft;
+        cur_mach = v_rocket/a;
+    }
     dynamics_model test(theta_map);
 
     // run dynamics model
