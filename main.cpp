@@ -50,7 +50,6 @@ void LAND_STATUS(state_t &state, int Pwm_pin, float Pwm_home_value);
 
 bool detect_launch(state_t state, int &launch_count);
 unordered_map<int, float> pitchanglevector(float theta_0);       //USE THIS IN MAIN
-void rotation(state_t &state);
 void xdot_calc(state_t &state, chrono::_V2::system_clock::time_point cal, chrono::_V2::system_clock::time_point cur, float loop_time, bool &velo_windowx, int &velo_counterx, int launch_count, int &end_velostuffx);
 void zdot_calc(state_t &state, chrono::_V2::system_clock::time_point cal, chrono::_V2::system_clock::time_point cur, float loop_time, bool &velo_windowz, int &velo_counterz, int launch_count, int &end_velostuffz);     
 void Mach_calc(state_t &state);
@@ -555,11 +554,6 @@ unordered_map<int, float> pitchanglevector(float theta_0)
     return theta_map;
 }
 
-void rotation(state_t &state)
-{
-    //Rotation matrix for accel data from rocket frame to ground frame
-}
-
 float pressure_to_altitude(state_t &state, float T0, float P0, chrono::_V2::system_clock::time_point cal, chrono::_V2::system_clock::time_point cur)
 {
     if (state.status != state_t::PAD && state.status != state_t::ARMED)     
@@ -628,13 +622,13 @@ void xdot_calc(state_t &state, chrono::_V2::system_clock::time_point cal, chrono
 
         if (velo_windowx)
         {
-            state.accel_window1[velo_counterx] = state.imu_data.accel.z;
+            state.accel_window1[velo_counterx] = state.imu_data.accel.x;
             state.dt_window1[velo_counterx] = loop_time;
             state.theta_window1[velo_counterx] = state.theta;
         }
         else
         {
-            state.accel_window2[velo_counterx] = state.imu_data.accel.z;
+            state.accel_window2[velo_counterx] = state.imu_data.accel.x;
             state.dt_window2[velo_counterx] = loop_time;
             state.theta_window2[velo_counterx] = state.theta;
         }
@@ -661,7 +655,7 @@ void xdot_calc(state_t &state, chrono::_V2::system_clock::time_point cal, chrono
     }
     else if ((state.status == state_t::LAUNCH_DETECTED || state.status == state_t::ACTUATION) && end_velostuffx == 1)
     {
-        state.velo.integral_velox = (loop_time/2.0)*(state.prev_accelz*sin(state.theta*D2R) + state.imu_data.accel.z*sin(state.theta*D2R)) + state.velo.prev_integral_velox;
+        state.velo.integral_velox = (loop_time/2.0)*(state.prev_accelz*sin(state.theta*D2R) + state.imu_data.accel.x*sin(state.theta*D2R)) + state.velo.prev_integral_velox;
         state.velo.prev_integral_velox = state.velo.integral_velox;     
 
         state.velo.xdot = state.velo.integral_velox;
@@ -726,13 +720,13 @@ void zdot_calc(state_t &state, chrono::_V2::system_clock::time_point cal, chrono
 
         if (velo_windowz)
         {
-            state.accel_window1[velo_counterz] = state.imu_data.accel.z;
+            state.accel_window1[velo_counterz] = state.imu_data.accel.x;
             state.dt_window1[velo_counterz] = loop_time;
             state.theta_window1[velo_counterz] = state.theta;
         }
         else
         {
-            state.accel_window2[velo_counterz] = state.imu_data.accel.z;
+            state.accel_window2[velo_counterz] = state.imu_data.accel.x;
             state.dt_window2[velo_counterz] = loop_time;
             state.theta_window2[velo_counterz] = state.theta;
         }
@@ -767,9 +761,9 @@ void zdot_calc(state_t &state, chrono::_V2::system_clock::time_point cal, chrono
         state.velo.zdot_2 = state.velo.zdot_1;
         state.velo.zdot_1 = state.velo.zdot;
 
-        state.velo.integral_veloz = (loop_time/2.0)*(state.prev_accelz*cos(state.theta*D2R) + state.imu_data.accel.z*cos(state.theta*D2R)) + state.velo.prev_integral_veloz;
+        state.velo.integral_veloz = (loop_time/2.0)*(state.prev_accelz*cos(state.theta*D2R) + state.imu_data.accel.x*cos(state.theta*D2R)) + state.velo.prev_integral_veloz;
         state.velo.prev_integral_veloz = state.velo.integral_veloz;     //CHECK THIS
-        state.prev_accelz = state.imu_data.accel.z;
+        state.prev_accelz = state.imu_data.accel.x;
     }
     
 }
@@ -843,11 +837,4 @@ void theta_calc(state_t &state)
 {
 
     state.theta = abs(90.0 - state.imu_data.heading.y);
-    // state.theta_magway = sqrt(pow(state.imu_data.heading.x,2) + pow(state.imu_data.heading.y,2));
-    // state.imu_data.heading.y -= 90.0;
-    // state.imu_data.heading.x += 180.0;
-    // state.theta = abs(atan(sqrt(pow(tan(state.imu_data.heading.x*M_PI/180.0),2) + pow(tan(state.imu_data.heading.y*M_PI/180.0),2)))*180.0/M_PI);
-    
-    
-    // state.theta = abs(90.0 - atan(sqrt(pow(tan(state.imu_data.heading.x*M_PI/180.0),2) + pow(tan(state.imu_data.heading.y*M_PI/180.0),2)))*180.0/M_PI);
 }
