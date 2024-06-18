@@ -54,46 +54,44 @@ int main()
 
 
     //Aibrake flap extension test from 0 degrees to a specified value in the int ext definition line.
-    pwmWrite(Pwm_pin, b);
-    delay(500);
-    delay(1000);
-    float ext = round(m*105 + b);
-
-    for(int i = 0; i < 5; i++)
-    {
-        pwmWrite(Pwm_pin, b);
-        delay(1000);
-        pwmWrite(Pwm_pin, ext);
-        delay(1000);
-    }
-    pwmWrite(Pwm_pin, b);
-
-
-
-
-
-    //Aibrake flap extension test from 0 degrees to 105 degrees and then from 105 to 0 degrees
     // pwmWrite(Pwm_pin, b);
     // delay(500);
-    // // Use m and b to create a mapping from 0 degrees to 105 degrees.
-    // float pwm_command;
-    // for(int i = 0; i < 106; i = i + 5)
-    // {
-    //     pwm_command = round(m*i + b);
-    //     delay(250);
-    //     pwmWrite(Pwm_pin, pwm_command);
-    //     cout << pwm_command << endl;        
-    // }
+    // delay(1000);
+    // float ext = round(m*105 + b);
 
-    // for(int i = 105; i > 5; i = i - 5)
+    // for(int i = 0; i < 5; i++)
     // {
-    //     pwm_command = round(m*i + b);
-    //     delay(250);
-    //     pwmWrite(Pwm_pin, pwm_command);
-    //     cout << pwm_command << endl;        
+    //     pwmWrite(Pwm_pin, b);
+    //     delay(1000);
+    //     pwmWrite(Pwm_pin, ext);
+    //     delay(1000);
     // }
-    // delay(500); 
-    // pwmWrite(Pwm_pin, b);   
+    // pwmWrite(Pwm_pin, b);
+
+
+
+
+
+    // Aibrake flap extension test from 0 degrees to 105 degrees and then from 105 to 0 degrees
+    pwmWrite(Pwm_pin, b);
+    delay(500);
+    // Use m and b to create a mapping from 0 degrees to 105 degrees.
+    float pwm_command;
+    for(int i = 0; i < 106; i = i + 5)
+    {
+        pwm_command = round(m*i + b);
+        delay(250);
+        pwmWrite(Pwm_pin, pwm_command);
+    }
+
+    for(int i = 105; i > 5; i = i - 5)
+    {
+        pwm_command = round(m*i + b);
+        delay(250);
+        pwmWrite(Pwm_pin, pwm_command);
+    }
+    delay(500); 
+    pwmWrite(Pwm_pin, b);   
 
     cout << "Testing done" << endl;     //Prints to the command that testing has concluded
 
