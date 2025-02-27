@@ -10,6 +10,9 @@ servo_test: Servo/Servo_test.cpp
 main_testing: main_testing.cpp IMU/imu.cpp bitbang/bitbang.cpp busynano/busynano.cpp Dynamics_Model_Controller/controller.cpp Dynamics_Model_Controller/drag.cpp Dynamics_Model_Controller/dynamics_model.cpp Dynamics_Model_Controller/pi.cpp Logger/logger.cpp
 	c++ -std=c++20 -g main_testing.cpp IMU/imu.cpp Dynamics_Model_Controller/controller.cpp Dynamics_Model_Controller/dynamics_model.cpp  Dynamics_Model_Controller/drag.cpp Dynamics_Model_Controller/pi.cpp busynano/busynano.cpp bitbang/bitbang.cpp Logger/logger.cpp -o main_testing -lwiringPi -O3
 
+sudo_hardware: Sudo_hardware_in_the_loop.cpp Dynamics_Model_Controller/controller.cpp Dynamics_Model_Controller/pi.cpp
+	c++ -std=c++20 -g Sudo_hardware_in_the_loop.cpp Dynamics_Model_Controller/controller.cpp  Dynamics_Model_Controller/pi.cpp -o sudo_hardware_in_the_loop -lwiringPi -O3
+
 clean:
 	rm -f msg-*.csv
 	rm -f state-*.csv

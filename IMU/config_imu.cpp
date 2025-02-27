@@ -2,7 +2,7 @@
 
 int main()
 {
-	imu_init(0x6B);
+	imu_init(); //imu_init(0x6B);
 
 	// go_to_config();
 	vector<unsigned char> cmd;

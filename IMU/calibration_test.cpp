@@ -1,6 +1,6 @@
 #include "imu.h"
 #include <chrono>
-#include "../controller/state.h"
+#include "../State/state.h"
 #include <fstream>
 
 void print_all(imu_data_t &imu_data);
@@ -15,7 +15,8 @@ int main()
     map<int, imu_data_t> data_set;
     state_t state;
 
-    imu_init(address);
+    // imu_init(address);
+    imu_init();
 
     for (int i = 0; i < 100; ++i)
     {

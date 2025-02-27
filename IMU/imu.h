@@ -55,4 +55,4 @@ bool send_xbus_msg(vector<unsigned char> cmd);
 bool check_sum();
 // int continuous_read(vector<unsigned char> *buf, unsigned char opcode);
 inline void set_offset(imu_data_t &offset);
-// void imu_moving_avg_calibrate(map<int, imu_data_t> &data_set);
+void imu_moving_avg_calibrate(map<int, imu_data_t> &data_set);

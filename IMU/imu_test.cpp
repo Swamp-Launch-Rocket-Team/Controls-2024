@@ -40,6 +40,7 @@ int main()
 
         cur = chrono::high_resolution_clock::now();
         // usleep(10000 - chrono::duration_cast<chrono::microseconds>(cur - start).count());
+        // delay(2000);
     }
 
     return 0;

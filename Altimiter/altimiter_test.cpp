@@ -9,7 +9,9 @@
 float Altitude_calc(float pressure)
 {
     pressure = pressure*100;        //mbar to Pa
-    float altitude = (288.15/0.0065)*(1-(pow(pressure/100090,0.0065*(R/g))));
+    //float altitude = (288.15/0.0065)*(1-(pow(pressure/100090,0.0065*(R/g))));
+    float altitude = (288.15/0.0065)*(1-(pow(pressure/101325,0.0065*(R/g))));
+
     return altitude;
 }
 
@@ -27,13 +29,13 @@ int main(void)
         std::cout << cal[i] << std::endl;
     }
 
-    for (int i = 0; i < 10; i++)
+    for (int i = 0; i < 100; i++)
     {
         altimiter_t alt_data = get_temp_and_pressure();
 
         float alt = Altitude_calc(alt_data.pressure);
-        std::cout << "TEMP: " + std::to_string(alt_data.temp) << "\tPRESS: " + std::to_string(alt_data.pressure) << "\tALT: "  + std::to_string(alt) << std::endl;
-        delay(35);
+        std::cout << "TEMP: " + std::to_string(alt_data.temp) + " C" << "\tPRESS: " + std::to_string(alt_data.pressure) + " mbar" << "\tALT: "  + std::to_string(alt) << std::endl;
+        delay(1000);
     }
     
 

@@ -20,41 +20,41 @@ class Drag
 
         // Individual wetted areas[in , 2]
         const float 	S_nosecone = 302.9, //DEPENDENT
-            S_forw_airf = 694.4,            //DEPENDENT
-            S_main_airf = 559.9,            //DEPENDENT
-            S_drogue_airf = 385.8,          //DEPENDENT
-            S_aft_airf = 945.2;             //DEPENDENT
+            S_forw_airf = 600.564576,       //DEPENDENT
+            S_main_airf = 697.4798,         //DEPENDENT
+            S_drogue_airf = 19.383,         //DEPENDENT
+            S_aft_airf = 572.3428;          //DEPENDENT
 
         // Rocket Parameters
-        const float d = 6.14,// max diameter of rocket[in]
-            L = 164.5,// distance from nosecone tip to bottom of aft, [in], DEPENDENT
-            Sb = 2888.2,// body wetted area of airframesand nosecone[in , 2], DEPENDENT
+        const float d = 6.17,// max diameter of rocket[in]
+            L = 129.415,// distance from nosecone tip to bottom of aft, [in], DEPENDENT
+            Sb = 2192.646176,// body wetted area of airframesand nosecone[in , 2], DEPENDENT
             Cr = 13.0,// root chord of fin[in], DEPENDENT
             Ct = 11.0,// tip chord of fin[in], DEPENDENT
             t = 0.18,// thickness of fins[in];, DEPENDENT
             Xtc = 13.0,// distance from leading edge to max thickness[in], DEPENDENT
             Sf = 131.64,// wetted area of a single fin[in , 2], DEPENDENT
-            Sr = 3577.5,// wetted area of entire body, fins, and purtuberances, this is not counting the airbrake, [in , 2], DEPENDENT
-            db = 6.14,// diameter at base of rocket[in], 
+            Sr = 2872.947751,// wetted area of entire body, fins, and purtuberances, this is not counting the airbrake, [in , 2], DEPENDENT
+            db = 5.4,// diameter at base of rocket[in], 
             aa = 0.00002503,//constant for kinematic viscosity
-            L0 = 137.4;// distance from nosecone - body joint to end of aft[in], DEPENDENT
+            L0 = 102.45;// distance from nosecone - body joint to end of aft[in], DEPENDENT
         const int Nf = 4.0;// number of fins
 
         // rail buttons
-        const float a_railbutton1 = 103.0,// distance from nosecone tip to rail button 1[in], DEPENDENT
+        const float a_railbutton1 = 81.5,// distance from nosecone tip to rail button 1[in], DEPENDENT
             Lp_railbutton1 = 1.26, //// length of rail button 1[in]
             A_railbutton1 = 0.317,// max cross - sectional area of rail button1[in , 2], 
-            a_railbutton2 = 145.0,        //DEPENDENT
+            a_railbutton2 = 111.0,        //DEPENDENT
             Lp_railbutton2 = 1.26,
             A_railbutton2 = 0.317;
 
         // Fin Brackets, 4 sets total, 8 individial brackets
-        const float a_bracket = 144.0,// distance from nosecone tip to fin brackets[in], DEPENDENT
+        const float a_bracket = 112.0,// distance from nosecone tip to fin brackets[in], DEPENDENT
             Lp_bracket = 12.6,// length of fin brackets[in]
             A_bracket_base = 0.148,// max cross - sectional area of fin bracket base[in , 2]
             A_bracket_height = 0.165;// max cross - sectional area of fin bracket height[in]
 
-        const float a_airbrake = 111.0,// distance from nosecone tip to airbrake[in], DEPENDENT
+        const float a_airbrake = 90.932,// distance from nosecone tip to airbrake[in], DEPENDENT
             Lp_airbrake = 0.19;// length of airbrake, aka flap thickness[in]
 
         float h;

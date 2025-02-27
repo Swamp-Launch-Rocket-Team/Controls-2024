@@ -18,7 +18,7 @@ class controller
         float limMax = 625;                //Max PWM signal
         float limMin_Integrator = 0;        //Minimum integral value for dynamic clamping (anti windup)
         float limMax_Integrator = 1;        //Max integral value for dynamic clamping (anti windup)
-        const float setpoint = 3048;        //10,000 ft in meters
+        const float setpoint = 1700; //1524; //3048;        //10,000 ft in meters DEPENDENT
         float slope_PWM = 280;              //slope for taking airbrake from 0->1 into PWM signal
         float b_PWM = 345;                   //y-intercept for taking airbrake from 0->1 into PWM signal
         float airbrake_output = 0;          //Output in PWM

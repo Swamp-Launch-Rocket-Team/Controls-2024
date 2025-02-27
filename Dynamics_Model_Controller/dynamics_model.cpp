@@ -10,7 +10,7 @@ using namespace std;
 
 //defines
 #define g 9.81
-#define m 32.6     //DEPENDENT      --
+#define m 20.6 // 32.6     //DEPENDENT      --
 // #define theta_0 13
 #define m_to_ft 3.28084
 #define pi 3.14159265
@@ -123,11 +123,11 @@ float dynamics_model::Calc_pitch_angle(float z)
     
     // doesnt check to see if the altitude exists but dont think i need that if the range is right
     int altitude_index = static_cast<int>(round(z)); //Finds the index for the current altitude
-    if (altitude_index < 2500) {
-        altitude_index = 2500;
+    if (altitude_index < 1000) {
+        altitude_index = 1000;
     }
-    else if (altitude_index > 11000) {
-        altitude_index = 11000;
+    else if (altitude_index > 6000) {
+        altitude_index = 6000;
     }
 
     float theta_at_altitude = theta_map[altitude_index];
@@ -157,7 +157,7 @@ float dynamics_model::Calc_rho(float z)
 	// 
 	//float z = 3002.3;     //Altitude [m], THIS IS THE INPUT
 
-	float T0 = 297.6;        //Temperature at ground level [K], DEPENDENT       --
+	float T0 = 299.0; //297.6;        //Temperature at ground level [K], DEPENDENT       --
 	float L = 0.0065;      //Lapse rate 
 
 	float T = T0 - L * z;        //Temperature at current altitude [K]

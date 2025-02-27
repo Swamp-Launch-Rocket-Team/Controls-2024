@@ -23,9 +23,9 @@ int main()
 
     //Initial Conditions
     float x = 0.0;
-	float z = 750; //767.7567
-	float x_dot = 72; //35.57027
-	float z_dot = 360;
+	float z = 291;//750; //767.7567
+	float x_dot = 12.5;// 72; //35.57027
+	float z_dot = 196;//360;
     float U_airbrake = 0;
 
     // time step info
@@ -85,86 +85,101 @@ int main()
 
 unordered_map<int, float> pitchanglevector(float theta_0)
 {
-    const static vector<float> m_theta{ 0.000525089, 0.000690884, 0.001009584, 0.001398228, 0.001801924 };    //Slopes for linear region, determined in excel
-
-
-    int min_altitude = 2500;
-    int max_altitude = 11000;
-    int linear_region_end = 7000;
-    int quadratic_region_end = 10000;
+    const static vector<float> m_theta = {0.00000055, -0.0016125, 10.1241};    //Slopes for linear region, determined in excel
+    
+    int min_altitude = 1000;
+    int max_altitude = 6000;
 
     unordered_map<int, float> theta_map;
 
     // begin linear fit region 2.5k to 7k feet
-    int slope_index;
-    for (int i =  min_altitude; i <= linear_region_end; i++) {
-        if (theta_0 <= 7)        //All of the if statements for theta_0
-        {
-            slope_index = 0;
-        }
-        else if (theta_0 < 7 && theta_0 < 10)
-        {
-            slope_index = 1;
-        }
-        else if (theta_0 >= 10 && theta_0 < 14)
-        {
-            slope_index = 2;
-        }
-        else if (theta_0 >= 14 && theta_0 < 19)
-        {
-            slope_index = 3;
-        }
-        else {
-            slope_index = 4;
-        }
-
-        theta_map[i] = m_theta[slope_index] * i + (theta_0 - m_theta[slope_index]*2500);
-
-    }
-    //End of Linear fit region, ends at index 4500 at an altitude of 7k feet
-
-    //Start of the Quadratic fit region, 7k ft to 10k ft
-    vector<float> a_theta{ 8.26652482191255e-7, 1.03558936423213e-6, 1.53275631191493e-6, 2.17922684530253e-6, 2.92066636707301e-6 };
-
-    int h_theta = 0;        //Parabola parameter for quadratic region
-    float k_theta = theta_map[linear_region_end];        //Initial value of quadratic region
-
-    for (int i = linear_region_end + 1; i <= quadratic_region_end; i++) {
-        if (theta_0 <= 7)        //All of the if statements for theta_0
-        {
-            slope_index = 0;
-        }
-        else if (theta_0 > 7 && theta_0 < 10)
-        {
-            slope_index = 1;
-        }
-        else if (theta_0 >= 10 && theta_0 < 14)
-        {
-            slope_index = 2;
-        }
-        else if (theta_0 >= 14 && theta_0 < 19)
-        {
-            slope_index = 3;
-        }
-        else {
-            slope_index = 4;
-        }
-
-        // it was - -h_theta
-        theta_map[i] = a_theta[slope_index] * pow((i - 7000 + h_theta), 2) + k_theta;
-
-    }
-    //End of Quadratic fit region, ends at index 7500 at an altitude of 10k feet
-
-    //Region after Quadratic region, increase linearly until 90 degrees at a steep slope
-
-    float inc = 0.1; // increment for linear section past quadratic region
-    for (int i = quadratic_region_end + 1; i <= max_altitude; i++) { //adds the last linear section past quadratic region
-        theta_map[i] = theta_map[quadratic_region_end] + inc * (i - quadratic_region_end);
+    for (int i = min_altitude; i <= max_altitude; i++) {
+        theta_map[i] = m_theta[0]*(pow(i, 2)) + m_theta[1]*i + m_theta[2];
     }
 
     return theta_map;
+    
+    // const static vector<float> m_theta{ 0.000525089, 0.000690884, 0.001009584, 0.001398228, 0.001801924 };    //Slopes for linear region, determined in excel
+
+
+    // int min_altitude = 2500;
+    // int max_altitude = 11000;
+    // int linear_region_end = 7000;
+    // int quadratic_region_end = 10000;
+
+    // unordered_map<int, float> theta_map;
+
+    // // begin linear fit region 2.5k to 7k feet
+    // int slope_index;
+    // for (int i =  min_altitude; i <= linear_region_end; i++) {
+    //     if (theta_0 <= 7)        //All of the if statements for theta_0
+    //     {
+    //         slope_index = 0;
+    //     }
+    //     else if (theta_0 < 7 && theta_0 < 10)
+    //     {
+    //         slope_index = 1;
+    //     }
+    //     else if (theta_0 >= 10 && theta_0 < 14)
+    //     {
+    //         slope_index = 2;
+    //     }
+    //     else if (theta_0 >= 14 && theta_0 < 19)
+    //     {
+    //         slope_index = 3;
+    //     }
+    //     else {
+    //         slope_index = 4;
+    //     }
+
+    //     theta_map[i] = m_theta[slope_index] * i + (theta_0 - m_theta[slope_index]*2500);
+
+    // }
+    // //End of Linear fit region, ends at index 4500 at an altitude of 7k feet
+
+    // //Start of the Quadratic fit region, 7k ft to 10k ft
+    // vector<float> a_theta{ 8.26652482191255e-7, 1.03558936423213e-6, 1.53275631191493e-6, 2.17922684530253e-6, 2.92066636707301e-6 };
+
+    // int h_theta = 0;        //Parabola parameter for quadratic region
+    // float k_theta = theta_map[linear_region_end];        //Initial value of quadratic region
+
+    // for (int i = linear_region_end + 1; i <= quadratic_region_end; i++) {
+    //     if (theta_0 <= 7)        //All of the if statements for theta_0
+    //     {
+    //         slope_index = 0;
+    //     }
+    //     else if (theta_0 > 7 && theta_0 < 10)
+    //     {
+    //         slope_index = 1;
+    //     }
+    //     else if (theta_0 >= 10 && theta_0 < 14)
+    //     {
+    //         slope_index = 2;
+    //     }
+    //     else if (theta_0 >= 14 && theta_0 < 19)
+    //     {
+    //         slope_index = 3;
+    //     }
+    //     else {
+    //         slope_index = 4;
+    //     }
+
+    //     // it was - -h_theta
+    //     theta_map[i] = a_theta[slope_index] * pow((i - 7000 + h_theta), 2) + k_theta;
+
+    // }
+    // //End of Quadratic fit region, ends at index 7500 at an altitude of 10k feet
+
+    // //Region after Quadratic region, increase linearly until 90 degrees at a steep slope
+
+    // float inc = 0.1; // increment for linear section past quadratic region
+    // for (int i = quadratic_region_end + 1; i <= max_altitude; i++) { //adds the last linear section past quadratic region
+    //     theta_map[i] = theta_map[quadratic_region_end] + inc * (i - quadratic_region_end);
+    // }
+
+    // return theta_map;
 }
+
 
 
 // #include <iostream>

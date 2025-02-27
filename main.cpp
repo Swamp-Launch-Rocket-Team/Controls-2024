@@ -27,12 +27,12 @@
 #define m_to_ft 3.28084
 #define R 287.058
 #define g 9.81
-#define press_expected 101060.0        //Expected pressure at launch site in Pa, DEPENDENT          -- 
-#define temp_expected 297.6            //Expected temperature at launch site in kelvin, DEPENDENT   --
+#define press_expected 102302.0 //101060.0        //Expected pressure at launch site in Pa, DEPENDENT          -- 
+#define temp_expected 299.0 //297.6            //Expected temperature at launch site in kelvin, DEPENDENT   --
 #define press_min 20000.0              //Min for outlier of, DEPENDENT                              --
 #define press_max 105000.0             //Max outlier for press, DEPENDENT                           --
 #define temp_min 280.0                 //Min temp in KELVIN, DEPENDENT                              --
-#define temp_max 305.15                 //Max temp in KELVIN, DEPENDENT                             --
+#define temp_max 310.0 //305.15                 //Max temp in KELVIN, DEPENDENT                             --
 #define lapse 0.0065                  //Lapse rate for pressure to altitude calc
 #define D2R M_PI/180.0                  //Degrees to radians conversion
 #define ZDOT_MAX 330.0                   //Max zdot, dynamics model fails at higher values (M > 1)
@@ -273,14 +273,14 @@ void PAD_status(int Pwm_pin, float Pwm_home_value, float Pwm_max_value, state_t 
 
     state.status = state_t::ARMED;
     cal = chrono::high_resolution_clock::now();
-
+    cout << "DJ Lagway Calibrated..." << endl;
     return;
 }
 
 void ARMED_status(state_t &state, chrono::_V2::system_clock::time_point start, chrono::_V2::system_clock::time_point &launch_time, chrono::_V2::system_clock::time_point cal, chrono::_V2::system_clock::time_point cur, vector<float> &press_cal, vector<float> &temp_cal, float &T0, float &P0, int &launch_count)
 {   
-
-    if (chrono::duration<double>(cur - cal).count() < 120.0)        //Add pressure and temp to calibration vectors if time less than 2 mins
+    float timer = 120.0;
+    if (chrono::duration<double>(cur - cal).count() < timer)        //Add pressure and temp to calibration vectors if time less than 2 mins
     {
         if (state.altimeter.temp > temp_max || state.altimeter.temp < temp_min) //Check to make sure temp is in expected range
         {
@@ -292,28 +292,47 @@ void ARMED_status(state_t &state, chrono::_V2::system_clock::time_point start, c
 
         P0 = (accumulate(press_cal.begin(),press_cal.end(),0.0))/press_cal.size();  //Find the average pressure and set to ground pressure
         T0 = (accumulate(temp_cal.begin(),temp_cal.end(),0.0)/temp_cal.size());     //Find the average temp and set to ground temp   
-
+        cout << "DJ Lagway Armed... T-" << timer - chrono::duration<double>(cur - cal).count() << " seconds till launch" << endl;
     }
+    else if (chrono::duration<double>(cur - cal).count() > timer && chrono::duration<double>(cur - cal).count() < timer + 0.5 ){
+        float end_val = 0;
+        for(int i = 345; i < 625; i = i + 10)
+        {
+            pwmWrite(23, i);
+            delay(100);
+            end_val = i;
+        }
+        delay(2000);
+        for(int i = end_val; i > 345.0; i = i - 10)
+        {
+            pwmWrite(23, i);
+            delay(100);
+        }
+        delay(500);
+        pwmWrite(23, 345.0);
+    }
+
 
     if (detect_launch(state, launch_count))
     {
         state.status = state_t::LAUNCH_DETECTED;
         launch_time = chrono::high_resolution_clock::now();
     }
-
+    
     return;
 }
 
 void LAUNCH_DETECTED_status(state_t &state, chrono::_V2::system_clock::time_point &motor_burn_time, float &theta_0, chrono::_V2::system_clock::time_point launch_time, chrono::_V2::system_clock::time_point cur, unordered_map<int, float> &theta_map, int &ii)
 {
     //Have motor burn detection function here, or simply a time delay equal to the motor burn + maybe 0.25 seconds?
-
+    cout << "DJ Lagway Away!" << endl;
     //Time delay implementation
-    float t_burn_expected = 4.5;    //Reported motor burn time from OpenRocket/Aerotech, DEPENDENT
+    float t_burn_expected = 2.98; //4.5;    //Reported motor burn time from OpenRocket/Aerotech, DEPENDENT
     if (chrono::duration<double>(cur - launch_time).count() >= (t_burn_expected + 0.25))
     {
         motor_burn_time = chrono::high_resolution_clock::now();
         state.status = state_t::ACTUATION;
+        cout << "Approaching Target" << endl;
     }
 
 
@@ -340,8 +359,8 @@ void ACTUATION_status(int Pwm_pin, float Pwm_home_value, float Pwm_max_value, st
     // auto t_start = chrono::high_resolution_clock::now();
     ii = 2;
 
-    float t_min = 16.0;     //minimum time expected to apogee from end of motor burn, DEPENDENT         --
-    float t_max = 26.0;     //max time expected to apogee from end of motor burn, DEPENDENT             --
+    float t_min = 13.0;//16.0;     //minimum time expected to apogee from end of motor burn, DEPENDENT         --
+    float t_max = 23.0;//26.0;     //max time expected to apogee from end of motor burn, DEPENDENT             --
 
     float t = 0.0;
     float dt = 0.1;
@@ -411,6 +430,8 @@ void ACTUATION_status(int Pwm_pin, float Pwm_home_value, float Pwm_max_value, st
 
 void DESCENT_STATUS(state_t &state, float Pwm_home_value, int Pwm_pin, chrono::_V2::system_clock::time_point &apogee_time, chrono::_V2::system_clock::time_point cur)
 {
+    cout << "Target Eliminated." << endl;
+    
     pwmWrite(Pwm_pin, Pwm_home_value);
     if (chrono::duration<double>(cur - apogee_time).count() >= 180.0)
     {
@@ -421,6 +442,7 @@ void DESCENT_STATUS(state_t &state, float Pwm_home_value, int Pwm_pin, chrono::_
 
 void LAND_STATUS(state_t &state, int Pwm_pin, float Pwm_home_value)
 {
+    cout << "Freedom Achieved." << endl;
     pwmWrite(Pwm_pin, Pwm_home_value);
     delay(500);
 
@@ -432,7 +454,7 @@ void LAND_STATUS(state_t &state, int Pwm_pin, float Pwm_home_value)
 //Add all of the other functions here: launch detect, maybe servo arming, detect motor burn end, detect apogee, write data from Jasons main, 
 bool detect_launch(state_t state, int &launch_count)
 {
-    float detection_acceleration = 5.0 * 9.81; 
+    float detection_acceleration = 3.0 * 9.81; 
     // fix bs way too high numbers by setting to 0
 
     if (launch_count > 4) {
@@ -473,86 +495,101 @@ bool detect_launch(state_t state, int &launch_count)
 
 unordered_map<int, float> pitchanglevector(float theta_0)
 {
-    const static vector<float> m_theta{ 0.000525089, 0.000690884, 0.001009584, 0.001398228, 0.001801924 };    //Slopes for linear region, determined in excel
-
-
-    int min_altitude = 2500;
-    int max_altitude = 11000;
-    int linear_region_end = 7000;
-    int quadratic_region_end = 10000;
+    const static vector<float> m_theta = {0.00000055, -0.0016125, 10.1241};    //Slopes for linear region, determined in excel
+    
+    int min_altitude = 1000;
+    int max_altitude = 6000;
 
     unordered_map<int, float> theta_map;
 
     // begin linear fit region 2.5k to 7k feet
-    int slope_index;
-    for (int i =  min_altitude; i <= linear_region_end; i++) {
-        if (theta_0 <= 7)        //All of the if statements for theta_0
-        {
-            slope_index = 0;
-        }
-        else if (theta_0 < 7 && theta_0 < 10)
-        {
-            slope_index = 1;
-        }
-        else if (theta_0 >= 10 && theta_0 < 14)
-        {
-            slope_index = 2;
-        }
-        else if (theta_0 >= 14 && theta_0 < 19)
-        {
-            slope_index = 3;
-        }
-        else {
-            slope_index = 4;
-        }
-
-        theta_map[i] = m_theta[slope_index] * i + (theta_0 - m_theta[slope_index]*2500);
-
-    }
-    //End of Linear fit region, ends at index 4500 at an altitude of 7k feet
-
-    //Start of the Quadratic fit region, 7k ft to 10k ft
-    vector<float> a_theta{ 8.26652482191255e-7, 1.03558936423213e-6, 1.53275631191493e-6, 2.17922684530253e-6, 2.92066636707301e-6 };
-
-    int h_theta = 0;        //Parabola parameter for quadratic region
-    float k_theta = theta_map[linear_region_end];        //Initial value of quadratic region
-
-    for (int i = linear_region_end + 1; i <= quadratic_region_end; i++) {
-        if (theta_0 <= 7)        //All of the if statements for theta_0
-        {
-            slope_index = 0;
-        }
-        else if (theta_0 > 7 && theta_0 < 10)
-        {
-            slope_index = 1;
-        }
-        else if (theta_0 >= 10 && theta_0 < 14)
-        {
-            slope_index = 2;
-        }
-        else if (theta_0 >= 14 && theta_0 < 19)
-        {
-            slope_index = 3;
-        }
-        else {
-            slope_index = 4;
-        }
-
-        // it was - -h_theta
-        theta_map[i] = a_theta[slope_index] * pow((i - 7000 + h_theta), 2) + k_theta;
-
-    }
-    //End of Quadratic fit region, ends at index 7500 at an altitude of 10k feet
-
-    //Region after Quadratic region, increase linearly until 90 degrees at a steep slope
-
-    float inc = 0.1; // increment for linear section past quadratic region
-    for (int i = quadratic_region_end + 1; i <= max_altitude; i++) { //adds the last linear section past quadratic region
-        theta_map[i] = theta_map[quadratic_region_end] + inc * (i - quadratic_region_end);
+    for (int i = min_altitude; i <= max_altitude; i++) {
+        theta_map[i] = m_theta[0]*(pow(i, 2)) + m_theta[1]*i + m_theta[2];
     }
 
     return theta_map;
+    
+    // const static vector<float> m_theta{ 0.000525089, 0.000690884, 0.001009584, 0.001398228, 0.001801924 };    //Slopes for linear region, determined in excel
+
+
+    // int min_altitude = 2500;
+    // int max_altitude = 11000;
+    // int linear_region_end = 7000;
+    // int quadratic_region_end = 10000;
+
+    // unordered_map<int, float> theta_map;
+
+    // // begin linear fit region 2.5k to 7k feet
+    // int slope_index;
+    // for (int i =  min_altitude; i <= linear_region_end; i++) {
+    //     if (theta_0 <= 7)        //All of the if statements for theta_0
+    //     {
+    //         slope_index = 0;
+    //     }
+    //     else if (theta_0 < 7 && theta_0 < 10)
+    //     {
+    //         slope_index = 1;
+    //     }
+    //     else if (theta_0 >= 10 && theta_0 < 14)
+    //     {
+    //         slope_index = 2;
+    //     }
+    //     else if (theta_0 >= 14 && theta_0 < 19)
+    //     {
+    //         slope_index = 3;
+    //     }
+    //     else {
+    //         slope_index = 4;
+    //     }
+
+    //     theta_map[i] = m_theta[slope_index] * i + (theta_0 - m_theta[slope_index]*2500);
+
+    // }
+    // //End of Linear fit region, ends at index 4500 at an altitude of 7k feet
+
+    // //Start of the Quadratic fit region, 7k ft to 10k ft
+    // vector<float> a_theta{ 8.26652482191255e-7, 1.03558936423213e-6, 1.53275631191493e-6, 2.17922684530253e-6, 2.92066636707301e-6 };
+
+    // int h_theta = 0;        //Parabola parameter for quadratic region
+    // float k_theta = theta_map[linear_region_end];        //Initial value of quadratic region
+
+    // for (int i = linear_region_end + 1; i <= quadratic_region_end; i++) {
+    //     if (theta_0 <= 7)        //All of the if statements for theta_0
+    //     {
+    //         slope_index = 0;
+    //     }
+    //     else if (theta_0 > 7 && theta_0 < 10)
+    //     {
+    //         slope_index = 1;
+    //     }
+    //     else if (theta_0 >= 10 && theta_0 < 14)
+    //     {
+    //         slope_index = 2;
+    //     }
+    //     else if (theta_0 >= 14 && theta_0 < 19)
+    //     {
+    //         slope_index = 3;
+    //     }
+    //     else {
+    //         slope_index = 4;
+    //     }
+
+    //     // it was - -h_theta
+    //     theta_map[i] = a_theta[slope_index] * pow((i - 7000 + h_theta), 2) + k_theta;
+
+    // }
+    // //End of Quadratic fit region, ends at index 7500 at an altitude of 10k feet
+
+    // //Region after Quadratic region, increase linearly until 90 degrees at a steep slope
+
+    // float inc = 0.1; // increment for linear section past quadratic region
+    // for (int i = quadratic_region_end + 1; i <= max_altitude; i++) { //adds the last linear section past quadratic region
+    //     theta_map[i] = theta_map[quadratic_region_end] + inc * (i - quadratic_region_end);
+    // }
+
+    // return theta_map;
 }
+
 
 float pressure_to_altitude(state_t &state, float T0, float P0, chrono::_V2::system_clock::time_point cal, chrono::_V2::system_clock::time_point cur)
 {
@@ -777,7 +814,7 @@ void Mach_calc(state_t &state)
     else
     {
         float V_rocket = (sqrt(pow(state.velo.xdot, 2) + pow(state.velo.zdot,2)))*m_to_ft;  //in ft/s
-        float h = 13.0 + state.altimeter.z*m_to_ft;   //in ft, first value is DEPENDENT on the launch site          --
+        float h = 15.0 + state.altimeter.z*m_to_ft; // was 13.0  //in ft, first value is DEPENDENT on the launch site          --
         float a = -0.004 * h + 1116.45;
         state.velo.Mach = V_rocket/a;       //Mach number
     }

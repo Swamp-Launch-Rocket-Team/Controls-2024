@@ -106,6 +106,7 @@ imu_data_t imu_read_data()
     for (int i = 0; i < buf.size(); i++)
     {
         buf[i] = receive[i+4];
+        // std::cout << std::hex << (int)receive[i] << std::endl;
     }
     // std::cout << std::hex << (int)receive[0] << std::endl;
     // std::cout << std::hex << (int)buf[0] << std::endl;
@@ -150,15 +151,15 @@ imu_data_t imu_read_data()
     parse_msg(imu_data);
 
     // Prints out if data is NaN
-    // if (isnan(imu_data.heading.x))
-    // {
-    //     cout << "Error: NaN found in message - ";
-        // for (int i = 0; i < 110; ++i)
-        // {
-        //     cout << hex << (int)buf[i] << " ";
-        // }
-        // cout << endl;
-    // }
+    if (isnan(imu_data.heading.x))
+    {
+        cout << "Error: NaN found in message - ";
+        for (int i = 0; i < 110; ++i)
+        {
+            cout << hex << (int)buf[i] << " ";
+        }
+        cout << endl;
+    }
 
     // imu_data = rotate_axes(imu_data);
 

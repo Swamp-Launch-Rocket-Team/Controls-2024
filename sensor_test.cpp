@@ -49,7 +49,7 @@ int main()
         imu_data_t imu_data = imu_read_data();
         
         theta = abs(90 - imu_data.heading.y);
-        
+        cout << theta << endl;
         auto t_sample = chrono::duration_cast<chrono::milliseconds>(chrono::high_resolution_clock::now() - cur).count();
         // std::cout << "Time to sample:\t" << t_sample << std::endl;
 
